@@ -1,0 +1,1 @@
+// funciones API supabase
