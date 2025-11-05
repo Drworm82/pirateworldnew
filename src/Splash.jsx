@@ -1,10 +1,14 @@
-export default function Splash({ hide }) {
+export default function Splash({ hidden }) {
   return (
-    <div className={`app-splash ${hide ? "hide" : ""}`}>
+    <div
+      id="app-splash"
+      className={`app-splash${hidden ? " hide" : ""}`}
+      aria-hidden={hidden ? "true" : "false"}
+    >
       <div className="brand safe">
         <h1>PirateWorld</h1>
-        <div className="dot"></div>
-        <small style="opacity:.8">Cargando…</small>
+        <div className="dot" />
+        <small style={{ opacity: 0.8 }}>Cargando…</small>
       </div>
     </div>
   );

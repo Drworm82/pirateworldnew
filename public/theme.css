@@ -1,48 +1,121 @@
+/* ================================
+   PirateWorld Theme
+   ================================ */
+
+/* Colores base */
 :root {
-  --bg: #0b132b;          /* fondo status bar y splash */
-  --fg: #ffffff;          /* texto splash */
-  --card: #101a3a;        /* tarjetas/botones */
-  --accent: #22d3ee;      /* cian */
+  --color-bg: #ffffff;
+  --color-text: #0b132b;
+  --color-accent: #fcd5b8;
 }
 
-/* Ajuste seguro para notch / barras */
-.safe {
-  padding:
-    max(24px, env(safe-area-inset-top))
-    max(16px, env(safe-area-inset-right))
-    max(24px, env(safe-area-inset-bottom))
-    max(16px, env(safe-area-inset-left));
+/* Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-/* “Splash” inicial simple */
-.app-splash {
-  position: fixed; inset: 0;
-  background: var(--bg);
-  color: var(--fg);
-  display: grid; place-items: center;
+/* Cuerpo */
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
   font-family: system-ui, sans-serif;
-  z-index: 9999; transition: opacity .25s ease;
-}
-.app-splash.hide { opacity: 0; pointer-events: none; }
-
-.brand {
-  display: grid; gap: 8px; text-align: center;
-}
-.brand h1 { margin: 0; font-weight: 800; letter-spacing: .5px; }
-.brand .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--accent); margin: 0 auto; }
-
-.btn {
-  display: inline-flex; align-items:center; gap: 8px;
-  padding: 10px 14px; border-radius: 12px; border: 1px solid #1f2b54;
-  background: var(--card); color: #e6faff; font-weight: 600; cursor: pointer;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* Toast de actualización */
-.toast {
-  position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: max(16px, env(safe-area-inset-bottom));
-  background: #111827; color: #fff; border-radius: 12px;
-  padding: 12px 14px; display: flex; gap: 10px; align-items: center;
-  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+/* Área segura (para notch en móviles) */
+.safe {
+  padding: env(safe-area-inset-top, 24px)
+    env(safe-area-inset-right, 16px)
+    env(safe-area-inset-bottom, 24px)
+    env(safe-area-inset-left, 16px);
 }
-.toast .action { background: #22d3ee; color: #001b1f; border: 0; border-radius: 10px; padding: 8px 12px; font-weight: 700; cursor: pointer; }
+
+/* ================================
+   SPLASH SCREEN
+   ================================ */
+.app-splash {
+  position: fixed;
+  inset: 0;
+  background: var(--color-text);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: system-ui, sans-serif;
+  z-index: 9999;
+  transition: opacity 0.4s ease;
+}
+
+.app-splash.hide {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+/* Elementos dentro del splash */
+.app-splash .brand {
+  text-align: center;
+}
+
+.app-splash .brand h1 {
+  font-size: 2rem;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+.app-splash .brand .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  margin: 8px auto;
+  animation: blink 1.5s infinite ease-in-out;
+}
+
+/* Animación punto */
+@keyframes blink {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+/* ================================
+   TOAST DE ACTUALIZACIÓN
+   ================================ */
+#update-toast {
+  position: fixed;
+  bottom: env(safe-area-inset-bottom, 20px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0b132b;
+  color: white;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translate(-50%, 20px);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+/* ================================
+   FIN DE TEMA
+   ================================ */
