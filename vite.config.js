@@ -12,7 +12,7 @@ export default defineConfig({
         name: "PirateWorld",
         short_name: "PirateWorld",
         description: "Juego geolocalizado pirata (demo web)",
-        start_url: "/",
+        start_url: "/?v=2025-11-05-02",
         scope: "/",
         display: "standalone",
         background_color: "#0b132b",
@@ -26,8 +26,8 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: "/index.html",
-        clientsClaim: true,   // << toma control inmediato
-        skipWaiting: true     // << evita esperar al cierre de pestañas
+        clientsClaim: true,   // SW nuevo toma control al instante
+        skipWaiting: true     // no espera cierre de pestañas
       }
     })
   ],
