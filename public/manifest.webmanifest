@@ -2,7 +2,7 @@
   "name": "PirateWorld",
   "short_name": "PirateWorld",
   "description": "Juego geolocalizado pirata (demo web)",
-  "start_url": "/",
+  "start_url": "/?v=2025-11-05-01",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0b132b",

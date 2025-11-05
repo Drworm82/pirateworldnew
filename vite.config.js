@@ -25,7 +25,9 @@ export default defineConfig({
         ]
       },
       workbox: {
-        navigateFallback: "/index.html"
+        navigateFallback: "/index.html",
+        clientsClaim: true,   // << toma control inmediato
+        skipWaiting: true     // << evita esperar al cierre de pestañas
       }
     })
   ],

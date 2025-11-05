@@ -2,15 +2,22 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>PirateWorld</title>
-    <!-- PWA basics -->
-    <meta name="theme-color" content="#0b132b">
-    <link rel="manifest" href="/manifest.webmanifest">
-    <!-- iOS PWA -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+    <!-- PWA -->
+    <meta name="theme-color" content="#0b132b" />
+    <link rel="manifest" href="/manifest.webmanifest?v=2025-11-05-01" />
+    <!-- iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <style>
+      body { font-family: system-ui, sans-serif; padding: 24px; }
+      #install-btn{ display:none; padding:10px 14px; border-radius:8px; border:1px solid #0b132b; background:#0b132b; color:#fff; font-weight:600; cursor:pointer; margin-top:12px }
+      .badge{ display:inline-block; padding:4px 8px; border-radius:999px; background:#eee; font-size:12px; margin-left:8px }
+      .ok{ background:#daf5d7 } .warn{ background:#ffe7c2 }
+    </style>
   </head>
   <body>
     <div id="root"></div>
