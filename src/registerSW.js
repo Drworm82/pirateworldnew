@@ -1,11 +1,17 @@
 import { registerSW } from "virtual:pwa-register";
 
-// Fuerza que el nuevo SW tome control sin esperar
+/**
+ * Expone un callback para cuando haya update:
+ * window.__onSWUpdateReady(() => { ... })
+ */
+let updateCb = null;
+window.__onSWUpdateReady = (cb) => { updateCb = cb; };
+
 registerSW({
   immediate: true,
   onNeedRefresh() {
-    // Forzamos refresco para tomar el SW nuevo
-    location.reload();
+    // SW nuevo esperando → avisamos a UI
+    if (typeof updateCb === "function") updateCb();
   },
   onOfflineReady() {
     console.log("PirateWorld PWA offline ready");

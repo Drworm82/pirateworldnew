@@ -2,15 +2,20 @@
   "name": "PirateWorld",
   "short_name": "PirateWorld",
   "description": "Juego geolocalizado pirata (demo web)",
-  "start_url": "/?v=2025-11-05-01",
+  "start_url": "/?v=2025-11-05-02",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0b132b",
   "theme_color": "#0b132b",
+  "categories": ["games", "entertainment"],
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
     { "src": "/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
     { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Mapa", "short_name": "Mapa", "url": "/?tab=map" },
+    { "name": "Inventario", "short_name": "Inventario", "url": "/?tab=inv" }
   ]
 }
