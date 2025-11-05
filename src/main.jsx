@@ -1,44 +1,34 @@
 import { createRoot } from "react-dom/client";
+import { useEffect, useState } from "react";
 import "./registerSW";
 import Splash from "./Splash.jsx";
 import UpdateToast from "./UpdateToast.jsx";
 
-// detectar si ya corre como app instalada
+// Detectar si está en modo standalone (instalada)
 const isStandalone =
   (window.matchMedia?.("(display-mode: standalone)")?.matches) ||
   (window.navigator.standalone === true);
 
 function App() {
-  let splashHidden = false;
-  let toastVisible = false;
+  const [splashHidden, setSplashHidden] = useState(false);
+  const [showUpdate, setShowUpdate] = useState(false);
 
-  function hideSplashSoon() {
-    // simulación de carga corta; en tu juego: cuando el mapa esté listo
-    setTimeout(() => {
-      splashHidden = true;
-      const el = document.getElementById("splash");
-      if (el) el.classList.add("hide");
-    }, 300);
-  }
+  // Ocultar splash después de breve retardo
+  useEffect(() => {
+    const t = setTimeout(() => setSplashHidden(true), 350);
+    return () => clearTimeout(t);
+  }, []);
 
-  // SW update → mostrar toast
-  window.__onSWUpdateReady(() => {
-    toastVisible = true;
-    const t = document.getElementById("update-toast");
-    if (t) t.style.display = "flex";
-  });
+  // Escuchar si hay actualización lista
+  useEffect(() => {
+    window.__onSWUpdateReady?.(() => setShowUpdate(true));
+  }, []);
 
-  function reloadNow() {
-    // recarga fuerte para tomar el SW nuevo
-    location.reload();
-  }
-
-  // arranque
-  hideSplashSoon();
+  const reloadNow = () => location.reload();
 
   return (
     <main className="safe" style={{ fontFamily: "system-ui, sans-serif" }}>
-      <div id="splash"><Splash hide={splashHidden} /></div>
+      <Splash hidden={splashHidden} />
 
       <h1 style={{ marginTop: 0 }}>PirateWorld</h1>
       <p>Espéralo pronto..</p>
@@ -49,9 +39,11 @@ function App() {
         </p>
       )}
 
-      <div id="update-toast" style={{ display: "none" }}>
-        <UpdateToast onReload={reloadNow} />
-      </div>
+      {showUpdate && (
+        <div id="update-toast">
+          <UpdateToast onReload={reloadNow} />
+        </div>
+      )}
     </main>
   );
 }
