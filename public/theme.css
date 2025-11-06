@@ -1,6 +1,3 @@
-/* ================================
-   PirateWorld Theme
-   ================================ */
 :root{
   --color-bg: #ffffff;
   --color-text: #0b132b;
@@ -12,168 +9,92 @@ body{
   color:var(--color-text);
   font-family:system-ui, sans-serif;
   -webkit-font-smoothing:antialiased;
-  text-rendering:optimizeLegibility;
 }
-.safe{
-  padding:
-    max(24px, env(safe-area-inset-top))
-    max(16px, env(safe-area-inset-right))
-    max(24px, env(safe-area-inset-bottom))
-    max(16px, env(safe-area-inset-left));
-}
+.safe{padding:max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));}
 
-/* ================================
-   SPLASH (grande, fade suave)
-   ================================ */
+/* =====================
+   SPLASH
+   ===================== */
 .app-splash{
   position:fixed; inset:0;
   display:grid; place-items:center;
-  background:linear-gradient(#0b132b 0%, #0b132b 55%, #0e1a3c 100%);
-  color:#fff;
-  z-index:9999;
-  opacity:1;
-  transition:opacity .45s ease;
-  overflow:hidden;
+  background:linear-gradient(#0b132b 0%, #1a2c56 50%, #2a406b 100%);
+  color:#fff; z-index:9999; opacity:1;
+  transition:opacity .45s ease; overflow:hidden;
 }
-.app-splash.hide{ opacity:0; pointer-events:none }
+.app-splash.hide{opacity:0;pointer-events:none}
 
 .app-splash .brand{
-  text-align:center;
-  display:grid;
-  gap:14px;
-  padding:24px 28px;
-  border-radius:20px;
+  text-align:center; display:grid; gap:14px;
+  padding:24px 28px; border-radius:20px;
   background:rgba(255,255,255,0.06);
   box-shadow:0 12px 40px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.04);
   animation:splashPop .6s ease both;
 }
+@keyframes splashPop{from{transform:translateY(8px) scale(.98);opacity:.0}to{transform:translateY(0) scale(1);opacity:1}}
 
-.app-splash .brand h1{
-  margin:0;
-  font-weight:900;
-  letter-spacing:.6px;
-  font-size:clamp(32px, 6vw, 56px);
-  line-height:1.05;
+.app-splash .brand h1{margin:0;font-weight:900;letter-spacing:.6px;font-size:clamp(32px, 6vw, 56px);}
+.app-splash .brand .tagline{opacity:.86;font-size:clamp(14px, 2.6vw, 18px);}
+.app-splash .badge{justify-self:center;padding:8px 12px;border-radius:999px;background:#0f1b3d;border:1px solid rgba(255,255,255,.12);font-size:clamp(12px,2.3vw,14px);opacity:.9;}
+
+/* =====================
+   CIELO ANIMADO
+   ===================== */
+.sky{
+  position:absolute; inset:0; overflow:hidden;
+  background:linear-gradient(to bottom, #86b6ff 0%, #c6dfff 70%, #f8faff 100%);
+  animation:skyShift 60s ease-in-out infinite alternate;
 }
-
-.app-splash .brand .tagline{
-  opacity:.86;
-  font-size:clamp(14px, 2.6vw, 18px);
+@keyframes skyShift{
+  0%{background:linear-gradient(to bottom, #86b6ff 0%, #c6dfff 70%, #f8faff 100%);}
+  50%{background:linear-gradient(to bottom, #74a4f8 0%, #bcd6ff 70%, #f1f4ff 100%);}
+  100%{background:linear-gradient(to bottom, #9cc8ff 0%, #d7e8ff 70%, #ffffff 100%);}
 }
-
-.app-splash .badge{
-  justify-self:center;
-  padding:8px 12px;
-  border-radius:999px;
-  background:#0f1b3d;
-  border:1px solid rgba(255,255,255,.12);
-  font-size:clamp(12px, 2.3vw, 14px);
-  opacity:.9;
-}
-
-@keyframes splashPop{
-  from{ transform:translateY(8px) scale(.98); opacity:.0 }
-  to{ transform:translateY(0) scale(1); opacity:1 }
-}
-
-/* ================================
-   MAR ANIMADO (parallax) – reutilizable
-   ================================ */
-.sea{
-  position:absolute; left:0; right:0; bottom:-8vh; height:40vh;
+.clouds{
+  position:absolute; inset:0;
   pointer-events:none;
 }
-.sea .layer{
+.clouds .layer{
   position:absolute; inset:0;
   background-repeat:repeat-x;
-  background-size: 200px 100px;
-  opacity:.95;
+  background-size:contain;
+  opacity:.25;
 }
-.sea .layer.front{
-  background-image:
-    radial-gradient(50px 22px at 25px 18px, rgba(255,255,255,.35) 30%, transparent 31%),
-    radial-gradient(50px 22px at 125px 40px, rgba(255,255,255,.25) 30%, transparent 31%);
-  filter:blur(0.4px);
-  animation:waveFront 6s linear infinite;
+.clouds .front{
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='100'><ellipse cx='60' cy='50' rx='60' ry='25' fill='white'/><ellipse cx='140' cy='40' rx='70' ry='30' fill='white'/><ellipse cx='220' cy='55' rx='60' ry='25' fill='white'/></svg>");
+  animation:cloudMoveFront 80s linear infinite;
 }
-.sea .layer.back{
-  background-image:
-    radial-gradient(60px 26px at 30px 20px, rgba(255,255,255,.18) 28%, transparent 29%),
-    radial-gradient(60px 26px at 130px 42px, rgba(255,255,255,.12) 28%, transparent 29%);
-  opacity:.6;
-  transform:translateY(12px);
-  animation:waveBack 12s linear infinite;
+.clouds .back{
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='100'><ellipse cx='70' cy='60' rx='70' ry='25' fill='white'/><ellipse cx='180' cy='50' rx='80' ry='25' fill='white'/></svg>");
+  opacity:.15;
+  animation:cloudMoveBack 160s linear infinite;
 }
+@keyframes cloudMoveFront{from{background-position:0 0}to{background-position:-300px 0}}
+@keyframes cloudMoveBack{from{background-position:0 0}to{background-position:-600px 0}}
 
-@keyframes waveFront{
-  from{ background-position: 0 0, 100px 0 }
-  to  { background-position: 200px 0, 300px 0 }
-}
-@keyframes waveBack{
-  from{ background-position: 0 0, 120px 0 }
-  to  { background-position: 240px 0, 360px 0 }
-}
-.sea::before{
-  content:""; position:absolute; inset:0;
-  background:linear-gradient(to top, rgba(24,57,110,.85), rgba(24,57,110,.6) 40%, transparent);
-  pointer-events:none;
-}
+/* =====================
+   MAR ANIMADO
+   ===================== */
+.sea{position:absolute;left:0;right:0;bottom:-8vh;height:40vh;pointer-events:none;}
+.sea .layer{position:absolute;inset:0;background-repeat:repeat-x;background-size:200px 100px;opacity:.95;}
+.sea .front{background-image:radial-gradient(50px 22px at 25px 18px, rgba(255,255,255,.35) 30%, transparent 31%),radial-gradient(50px 22px at 125px 40px, rgba(255,255,255,.25) 30%, transparent 31%);animation:waveFront 6s linear infinite;}
+.sea .back{background-image:radial-gradient(60px 26px at 30px 20px, rgba(255,255,255,.18) 28%, transparent 29%),radial-gradient(60px 26px at 130px 42px, rgba(255,255,255,.12) 28%, transparent 29%);opacity:.6;transform:translateY(12px);animation:waveBack 12s linear infinite;}
+@keyframes waveFront{from{background-position:0 0,100px 0}to{background-position:200px 0,300px 0}}
+@keyframes waveBack{from{background-position:0 0,120px 0}to{background-position:240px 0,360px 0}}
+.sea::before{content:"";position:absolute;inset:0;background:linear-gradient(to top, rgba(24,57,110,.85), rgba(24,57,110,.6) 40%, transparent);pointer-events:none;}
 
-/* ================================
-   GAVIOTA (solo splash)
-   ================================ */
-.gull{
-  position:absolute;
-  top:12vh;
-  left:-15vw;
-  width:min(18vw, 120px);
-  height:auto;
-  opacity:.95;
-  filter:drop-shadow(0 2px 2px rgba(0,0,0,.25));
-  animation:
-    gullFly 14s linear infinite,
-    gullFlap .9s ease-in-out infinite;
-}
-@keyframes gullFly{
-  0%   { transform:translate(-10vw, 0) }
-  20%  { transform:translate(15vw, -1.5vh) }
-  40%  { transform:translate(40vw, 1.5vh) }
-  60%  { transform:translate(65vw, -0.8vh) }
-  80%  { transform:translate(90vw, 1.2vh) }
-  100% { transform:translate(120vw, 0) }
-}
-@keyframes gullFlap{
-  0%,100%{ transform-origin:50% 60%; transform:rotate(0deg) }
-  50%    { transform-origin:50% 60%; transform:rotate(-8deg) }
-}
+/* =====================
+   GAVIOTAS
+   ===================== */
+.gull,.gull2{position:absolute;top:10vh;left:-15vw;width:min(18vw,120px);height:auto;opacity:.9;filter:drop-shadow(0 2px 2px rgba(0,0,0,.25));}
+.gull{animation:gullFly 14s linear infinite,gullFlap .9s ease-in-out infinite;}
+.gull2{top:18vh;width:min(12vw,80px);opacity:.7;animation:gullFly2 20s linear infinite,gullFlap 1.2s ease-in-out infinite;}
+@keyframes gullFly{0%{transform:translate(-10vw,0)}100%{transform:translate(120vw,0)}}
+@keyframes gullFly2{0%{transform:translate(120vw,0) scaleX(-1)}100%{transform:translate(-20vw,0) scaleX(-1)}}
+@keyframes gullFlap{0%,100%{transform-origin:50% 60%;transform:rotate(0deg)}50%{transform-origin:50% 60%;transform:rotate(-8deg)}}
 
-/* ================================
-   FONDO ANIMADO PARA PANTALLA PRINCIPAL
-   ================================ */
-.app-bg{
-  position:fixed; inset:0; z-index:-1; overflow:hidden;
-  background:linear-gradient(#eaf2ff 0%, #f6f9ff 55%, #ffffff 100%);
-}
-.sea-main{
-  position:absolute; left:0; right:0; bottom:-12vh; height:34vh;
-  opacity:.9;
-}
-.sea-main .layer.front{ animation-duration:7s }
-.sea-main .layer.back{ animation-duration:14s; opacity:.5 }
-
-/* ================================
-   TOAST ACTUALIZACIÓN
-   ================================ */
-#update-toast{
-  position:fixed; left:50%; transform:translateX(-50%);
-  bottom:max(16px, env(safe-area-inset-bottom));
-  background:#0b132b; color:#fff;
-  border-radius:12px; padding:12px 14px;
-  font-size:14px; display:flex; gap:10px; align-items:center;
-  box-shadow:0 10px 30px rgba(0,0,0,.35);
-  animation:slideUp .3s ease;
-}
-@keyframes slideUp{
-  from{ transform:translate(-50%, 20px); opacity:0 }
-  to{ transform:translate(-50%, 0); opacity:1 }
-}
+/* =====================
+   TOAST
+   ===================== */
+#update-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:max(16px,env(safe-area-inset-bottom));background:#0b132b;color:#fff;border-radius:12px;padding:12px 14px;font-size:14px;display:flex;gap:10px;align-items:center;box-shadow:0 10px 30px rgba(0,0,0,.35);animation:slideUp .3s ease;}
+@keyframes slideUp{from{transform:translate(-50%,20px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
