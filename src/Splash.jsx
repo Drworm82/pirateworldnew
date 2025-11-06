@@ -71,7 +71,7 @@ export default function Splash({ onDone }) {
       {/* texto */}
       <div className="splash-title">
         <h1>PirateWorld</h1>
-        <p>Base PWA lista. Edite libremente.</p>
+        <p>Próximamente.</p>
         <div className="splash-pill">Cargando…</div>
       </div>
     </div>
