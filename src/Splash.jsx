@@ -1,56 +1,45 @@
-export default function Splash({ hidden }) {
-  const delaySec = Math.floor(Math.random() * 7) + 2; // gaviota 1
-  const delaySec2 = Math.floor(Math.random() * 9) + 5; // gaviota 2
-
+export default function Splash({ hidden = false }) {
   return (
-    <div className={`app-splash${hidden ? " hide" : ""}`}>
-      {/* Cielo con nubes */}
-      <div className="sky">
-        <div className="clouds">
-          <div className="layer back"></div>
-          <div className="layer front"></div>
-        </div>
-      </div>
-
-      {/* Gaviota principal */}
+    <div className={`app-splash ${hidden ? "hide" : ""}`} aria-hidden={hidden}>
+      {/* Brújula giratoria */}
       <svg
-        className="gull"
-        style={{ animationDelay: `${delaySec}s, ${delaySec}s` }}
-        viewBox="0 0 120 60"
+        className="splash-compass"
+        viewBox="0 0 100 100"
         xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
       >
-        <path d="M52 33c4 2 9 2 12 0 2-2 4-4 6-4 3 0 4 3 1 5-5 5-14 7-21 4-2-1-1-4 2-5z" fill="#f1f5f9"/>
-        <path d="M52 32c-12-8-20-10-32-12 16 0 28 3 37 10l-5 2z" fill="#e2e8f0"/>
-        <path d="M64 32c12-8 20-10 32-12-16 0-28 3-37 10l5 2z" fill="#e2e8f0"/>
-        <circle cx="66" cy="31" r="1.1" fill="#0b132b"/>
-        <path d="M69 31l5 1-5 1z" fill="#fbbf24"/>
+        <defs>
+          <radialGradient id="compassGlow" cx="50%" cy="50%">
+            <stop offset="0%" stopColor="rgba(255,255,255,.55)" />
+            <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+          </radialGradient>
+        </defs>
+
+        <!-- halo suave -->
+        <circle cx="50" cy="50" r="48" fill="url(#compassGlow)"></circle>
+        <!-- aro exterior -->
+        <circle cx="50" cy="50" r="46" fill="none" stroke="#ffffff" strokeWidth="2" opacity="0.9" />
+        <!-- marcas cardinales -->
+        <g fill="#ffffff" opacity="0.9" fontFamily="system-ui, sans-serif" fontSize="9" textAnchor="middle">
+          <text x="50" y="13">N</text>
+          <text x="50" y="96">S</text>
+          <text x="7"  y="54">W</text>
+          <text x="93" y="54">E</text>
+        </g>
+        <!-- rosa de los vientos -->
+        <g>
+          <polygon points="50,6 54,50 50,94 46,50" fill="#ffffff"/>
+          <polygon points="50,14 57,50 50,86 43,50" fill="#0b132b"/>
+        </g>
+        <!-- centro -->
+        <circle cx="50" cy="50" r="3.6" fill="#fbbf24" />
       </svg>
 
-      {/* Gaviota lejana */}
-      <svg
-        className="gull2"
-        style={{ animationDelay: `${delaySec2}s, ${delaySec2}s` }}
-        viewBox="0 0 120 60"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path d="M52 33c4 2 9 2 12 0 2-2 4-4 6-4 3 0 4 3 1 5-5 5-14 7-21 4-2-1-1-4 2-5z" fill="#f1f5f9"/>
-        <path d="M52 32c-12-8-20-10-32-12 16 0 28 3 37 10l-5 2z" fill="#e2e8f0"/>
-        <path d="M64 32c12-8 20-10 32-12-16 0-28 3-37 10l5 2z" fill="#e2e8f0"/>
-        <circle cx="66" cy="31" r="1.1" fill="#0b132b"/>
-        <path d="M69 31l5 1-5 1z" fill="#fbbf24"/>
-      </svg>
-
-      {/* Marca */}
-      <div className="brand safe">
-        <span className="badge">PirateWorld</span>
-        <h1>¡Bienvenido a bordo!</h1>
-        <small className="tagline">Preparando el navío…</small>
-      </div>
-
-      {/* Mar */}
-      <div className="sea" aria-hidden="true">
-        <div className="layer back"></div>
-        <div className="layer front"></div>
+      {/* Caja de marca */}
+      <div className="brand">
+        <h1>PirateWorld</h1>
+        <p className="tagline">Base PWA lista. Edite libremente.</p>
+        <div className="badge">Cargando…</div>
       </div>
     </div>
   );
