@@ -1,140 +1,103 @@
 import { createRoot } from "react-dom/client";
+import { useEffect, useState } from "react";
 import "./registerSW";
+import Splash from "./Splash.jsx";
+import UpdateToast from "./UpdateToast.jsx";
 
 /**
- * PirateWorld — PWA base
- * Actualización:
- * - Muestra “Instalada ✅” una vez que la app se instala.
- * - Mensaje dinámico según el dispositivo.
- * - Botón de instalación solo cuando corresponde.
+ * Mejoras clave:
+ * - Splash GRANDE y visible ~1.4s mínimo (SPLASH_MIN_MS).
+ * - Desvanecido suave y responsivo.
+ * - Mensaje de instalación dinámico; cambia a ✅ cuando se instala.
+ * - Toast de actualización si hay nuevo SW.
  */
 
+const SPLASH_MIN_MS = 1400;
+
 function App() {
-  let deferredPrompt = null;
-  let isInstalled = false;
-
-  // Detectar si ya está instalada
-  const isStandalone =
+  const [splashHidden, setSplashHidden] = useState(false);
+  const [showUpdate, setShowUpdate] = useState(false);
+  const [installed, setInstalled] = useState(
     window.matchMedia?.("(display-mode: standalone)")?.matches ||
-    window.navigator.standalone === true;
+      window.navigator.standalone === true
+  );
 
-  if (isStandalone) isInstalled = true;
+  // Mostrar splash al menos SPLASH_MIN_MS
+  useEffect(() => {
+    const t = setTimeout(() => setSplashHidden(true), SPLASH_MIN_MS);
+    return () => clearTimeout(t);
+  }, []);
 
-  function showInstallButton() {
-    const btn = document.getElementById("install-btn");
-    if (btn) btn.style.display = "inline-flex";
-  }
+  // SW update → mostrar toast
+  useEffect(() => {
+    window.__onSWUpdateReady?.(() => setShowUpdate(true));
+  }, []);
 
-  function hideInstallButton() {
-    const btn = document.getElementById("install-btn");
-    if (btn) btn.style.display = "none";
-  }
+  // Evento cuando el usuario instala la PWA
+  useEffect(() => {
+    const onInstalled = () => setInstalled(true);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => window.removeEventListener("appinstalled", onInstalled);
+  }, []);
 
-  // Escuchar evento antes de instalar
-  window.addEventListener("beforeinstallprompt", (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    setTimeout(showInstallButton, 500);
-  });
+  const reloadNow = () => location.reload();
 
-  // Escuchar cuando se instala
-  window.addEventListener("appinstalled", () => {
-    isInstalled = true;
-    hideInstallButton();
-    const msg = document.getElementById("install-hint");
-    if (msg) {
-      msg.innerHTML = "✅ Aplicación instalada correctamente.";
-      msg.style.color = "#008000";
-    }
-  });
-
-  async function handleInstall() {
-    if (!deferredPrompt) {
-      alert(
-        "Si no aparece el diálogo, usa el menú ⋮ → 'Agregar a la pantalla principal'."
-      );
-      return;
-    }
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    deferredPrompt = null;
-    if (outcome === "accepted") hideInstallButton();
-  }
-
-  // Mensaje adaptado según dispositivo
-  const userAgent = navigator.userAgent.toLowerCase();
+  // Mensaje adaptado
+  const ua = navigator.userAgent.toLowerCase();
   let installHint = "";
-
-  if (isInstalled) {
+  if (installed) {
     installHint = "✅ Aplicación instalada correctamente.";
-  } else if (userAgent.includes("android")) {
+  } else if (ua.includes("android")) {
     installHint =
       "En Android: abre el menú ⋮ en Chrome y elige “Agregar a la pantalla principal”.";
-  } else if (userAgent.includes("iphone") || userAgent.includes("ipad")) {
+  } else if (ua.includes("iphone") || ua.includes("ipad")) {
     installHint =
-      "En iPhone/iPad: toca el botón “Compartir” y selecciona “Añadir a pantalla de inicio”.";
+      "En iPhone/iPad: toca “Compartir” y selecciona “Añadir a pantalla de inicio”.";
   } else {
     installHint =
       "Desde tu navegador, selecciona “Instalar aplicación” o “Agregar a la pantalla principal”.";
   }
 
-  // Render
   return (
     <main
+      className="safe"
       style={{
         fontFamily: "system-ui, sans-serif",
-        padding: "2rem",
-        textAlign: "center",
-        background: "#fafafa",
         minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
+        background: "#fafafa",
         color: "#0b132b",
+        display: "grid",
+        placeItems: "center",
+        padding: "2rem"
       }}
     >
-      <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>PirateWorld</h1>
-      <p style={{ marginBottom: "1rem", fontSize: "1.1rem" }}>Espéralo pronto…</p>
+      <Splash hidden={splashHidden} />
 
-      <p
-        id="install-hint"
-        style={{
-          color: isInstalled ? "#008000" : "#444",
-          fontSize: "0.95rem",
-          background: "#f5f5f5",
-          padding: "0.8rem 1rem",
-          borderRadius: "10px",
-          maxWidth: "320px",
-          lineHeight: 1.5,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-        }}
-      >
-        💡 <span>{installHint}</span>
-      </p>
+      <div style={{ textAlign: "center", maxWidth: 560 }}>
+        <h1 style={{ fontSize: "2rem", marginBottom: ".5rem" }}>PirateWorld</h1>
+        <p style={{ marginBottom: "1rem", fontSize: "1.1rem" }}>Espéralo pronto…</p>
 
-      {!isStandalone && (
-        <button
-          id="install-btn"
-          onClick={handleInstall}
+        <p
+          id="install-hint"
           style={{
-            display: "none",
-            padding: "10px 16px",
-            borderRadius: "8px",
-            border: "none",
-            background: "#0b132b",
-            color: "#fff",
-            fontWeight: 600,
-            cursor: "pointer",
-            marginTop: "18px",
-            boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
-            transition: "background 0.3s",
+            color: installed ? "#008000" : "#444",
+            fontSize: "0.95rem",
+            background: "#f5f5f5",
+            padding: "0.8rem 1rem",
+            borderRadius: "10px",
+            lineHeight: 1.5,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+            display: "inline-block"
           }}
-          onMouseOver={(e) => (e.currentTarget.style.background = "#1c2541")}
-          onMouseOut={(e) => (e.currentTarget.style.background = "#0b132b")}
         >
-          Instalar aplicación
-        </button>
+          💡 <span>{installHint}</span>
+        </p>
+      </div>
+
+      {showUpdate && (
+        <div id="update-toast">
+          <UpdateToast onReload={reloadNow} />
+        </div>
       )}
     </main>
   );
