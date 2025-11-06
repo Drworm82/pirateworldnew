@@ -23,16 +23,17 @@ body{
 }
 
 /* ================================
-   SPLASH SCREEN (más grande y visible)
+   SPLASH (grande, fade suave)
    ================================ */
 .app-splash{
   position:fixed; inset:0;
   display:grid; place-items:center;
-  background:var(--color-text);
+  background:linear-gradient(#0b132b 0%, #0b132b 55%, #0e1a3c 100%);
   color:#fff;
   z-index:9999;
   opacity:1;
   transition:opacity .45s ease;
+  overflow:hidden;
 }
 .app-splash.hide{ opacity:0; pointer-events:none }
 
@@ -47,12 +48,10 @@ body{
   animation:splashPop .6s ease both;
 }
 
-/* Títulos grandes y responsivos */
 .app-splash .brand h1{
   margin:0;
   font-weight:900;
   letter-spacing:.6px;
-  /* Tamaño fluido: 32px - 56px según viewport */
   font-size:clamp(32px, 6vw, 56px);
   line-height:1.05;
 }
@@ -62,7 +61,6 @@ body{
   font-size:clamp(14px, 2.6vw, 18px);
 }
 
-/* Píldora/insignia */
 .app-splash .badge{
   justify-self:center;
   padding:8px 12px;
@@ -73,22 +71,86 @@ body{
   opacity:.9;
 }
 
-/* Punto animado */
-.app-splash .dot{
-  width:12px; height:12px; border-radius:999px;
-  background:var(--color-accent);
-  margin:0 auto;
-  animation:blink 1.6s ease-in-out infinite;
-}
-
-@keyframes blink{
-  0%,100%{opacity:.25; transform:scale(.85)}
-  50%{opacity:1; transform:scale(1.15)}
-}
-
 @keyframes splashPop{
   from{ transform:translateY(8px) scale(.98); opacity:.0 }
   to{ transform:translateY(0) scale(1); opacity:1 }
+}
+
+/* ================================
+   MAR ANIMADO (dos capas parallax)
+   ================================ */
+.sea{
+  position:absolute; left:0; right:0; bottom:-8vh; height:40vh;
+  pointer-events:none;
+}
+.sea .layer{
+  position:absolute; inset:0;
+  background-repeat:repeat-x;
+  background-size: 200px 100px;
+  opacity:.95;
+}
+.sea .layer.front{
+  /* ondas más brillantes y rápidas */
+  background-image:
+    radial-gradient(50px 22px at 25px 18px, rgba(255,255,255,.35) 30%, transparent 31%),
+    radial-gradient(50px 22px at 125px 40px, rgba(255,255,255,.25) 30%, transparent 31%);
+  filter:blur(0.4px);
+  animation:waveFront 6s linear infinite;
+}
+.sea .layer.back{
+  /* fondo del mar */
+  background-image:
+    radial-gradient(60px 26px at 30px 20px, rgba(255,255,255,.18) 28%, transparent 29%),
+    radial-gradient(60px 26px at 130px 42px, rgba(255,255,255,.12) 28%, transparent 29%);
+  opacity:.6;
+  transform:translateY(12px);
+  animation:waveBack 12s linear infinite;
+}
+
+@keyframes waveFront{
+  from{ background-position: 0 0, 100px 0 }
+  to  { background-position: 200px 0, 300px 0 }
+}
+@keyframes waveBack{
+  from{ background-position: 0 0, 120px 0 }
+  to  { background-position: 240px 0, 360px 0 }
+}
+
+/* degradado del mar para mezclar con el cielo */
+.sea::before{
+  content:"";
+  position:absolute; inset:0;
+  background:linear-gradient(to top, rgba(24,57,110,.85), rgba(24,57,110,.6) 40%, transparent);
+  pointer-events:none;
+}
+
+/* ================================
+   GAVIOTA (SVG animado)
+   ================================ */
+.gull{
+  position:absolute;
+  top:12vh;
+  left:-15vw;
+  width:min(18vw, 120px);
+  height:auto;
+  opacity:.95;
+  filter:drop-shadow(0 2px 2px rgba(0,0,0,.25));
+  animation:
+    gullFly 14s linear infinite,
+    gullFlap .9s ease-in-out infinite;
+  /* El delay se define inline desde React para variar su aparición */
+}
+@keyframes gullFly{
+  0%   { transform:translate(-10vw, 0) }
+  20%  { transform:translate(15vw, -1.5vh) }
+  40%  { transform:translate(40vw, 1.5vh) }
+  60%  { transform:translate(65vw, -0.8vh) }
+  80%  { transform:translate(90vw, 1.2vh) }
+  100% { transform:translate(120vw, 0) }
+}
+@keyframes gullFlap{
+  0%,100%{ transform-origin:50% 60%; transform:rotate(0deg) }
+  50%    { transform-origin:50% 60%; transform:rotate(-8deg) }
 }
 
 /* ================================
