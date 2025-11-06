@@ -1,4 +1,4 @@
-/* ===== Pantalla principal sin gaviota, mapa náutico y layout compacto ===== */
+/* ===== Pantalla principal: mapa náutico, layout compacto, botón instalar ===== */
 :root{
   --bg:#0b132b;--ink:#fff;--muted:#d8dee9;--btn:#ffffff1a;--btnH:#ffffff2a;--bd:#ffffff33;
 }
@@ -19,7 +19,7 @@ fill='none' stroke='white' stroke-opacity='.10' stroke-width='1'/></pattern></de
 @keyframes mapDrift{0%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(-4%,-3%,0) scale(1.03)}100%{transform:translate3d(0,0,0) scale(1)}}
 
 .hero{
-  position:relative;z-index:1;min-height:70svh; /* más corta */
+  position:relative;z-index:1;min-height:70svh; /* más corto */
   padding:10svh 16px 8svh;display:flex;flex-direction:column;align-items:center;justify-content:center;
   text-align:center;gap:12px;
 }

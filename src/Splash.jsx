@@ -16,7 +16,7 @@ export default function Splash() {
           {/* aro */}
           <circle cx="50" cy="50" r="38" fill="none" stroke="white" strokeOpacity="0.7" strokeWidth="2" />
 
-          {/* marcas NSEW */}
+          {/* N S W E */}
           <g fill="white" fillOpacity="0.85" fontSize="7" fontWeight="700" textAnchor="middle" dominantBaseline="middle">
             <text x="50" y="16">N</text>
             <text x="50" y="84">S</text>
@@ -24,7 +24,7 @@ export default function Splash() {
             <text x="84" y="52">E</text>
           </g>
 
-          {/* rosa de los vientos */}
+          {/* aguja */}
           <g>
             <circle cx="50" cy="50" r="2.8" fill="#ffd166" />
             <polygon points="50,12 56,50 50,53 44,50" fill="#0ea5e9">
