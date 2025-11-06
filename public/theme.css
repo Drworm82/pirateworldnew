@@ -77,7 +77,7 @@ body{
 }
 
 /* ================================
-   MAR ANIMADO (dos capas parallax)
+   MAR ANIMADO (parallax) – reutilizable
    ================================ */
 .sea{
   position:absolute; left:0; right:0; bottom:-8vh; height:40vh;
@@ -90,7 +90,6 @@ body{
   opacity:.95;
 }
 .sea .layer.front{
-  /* ondas más brillantes y rápidas */
   background-image:
     radial-gradient(50px 22px at 25px 18px, rgba(255,255,255,.35) 30%, transparent 31%),
     radial-gradient(50px 22px at 125px 40px, rgba(255,255,255,.25) 30%, transparent 31%);
@@ -98,7 +97,6 @@ body{
   animation:waveFront 6s linear infinite;
 }
 .sea .layer.back{
-  /* fondo del mar */
   background-image:
     radial-gradient(60px 26px at 30px 20px, rgba(255,255,255,.18) 28%, transparent 29%),
     radial-gradient(60px 26px at 130px 42px, rgba(255,255,255,.12) 28%, transparent 29%);
@@ -115,17 +113,14 @@ body{
   from{ background-position: 0 0, 120px 0 }
   to  { background-position: 240px 0, 360px 0 }
 }
-
-/* degradado del mar para mezclar con el cielo */
 .sea::before{
-  content:"";
-  position:absolute; inset:0;
+  content:""; position:absolute; inset:0;
   background:linear-gradient(to top, rgba(24,57,110,.85), rgba(24,57,110,.6) 40%, transparent);
   pointer-events:none;
 }
 
 /* ================================
-   GAVIOTA (SVG animado)
+   GAVIOTA (solo splash)
    ================================ */
 .gull{
   position:absolute;
@@ -138,7 +133,6 @@ body{
   animation:
     gullFly 14s linear infinite,
     gullFlap .9s ease-in-out infinite;
-  /* El delay se define inline desde React para variar su aparición */
 }
 @keyframes gullFly{
   0%   { transform:translate(-10vw, 0) }
@@ -154,7 +148,21 @@ body{
 }
 
 /* ================================
-   TOAST DE ACTUALIZACIÓN
+   FONDO ANIMADO PARA PANTALLA PRINCIPAL
+   ================================ */
+.app-bg{
+  position:fixed; inset:0; z-index:-1; overflow:hidden;
+  background:linear-gradient(#eaf2ff 0%, #f6f9ff 55%, #ffffff 100%);
+}
+.sea-main{
+  position:absolute; left:0; right:0; bottom:-12vh; height:34vh;
+  opacity:.9;
+}
+.sea-main .layer.front{ animation-duration:7s }
+.sea-main .layer.back{ animation-duration:14s; opacity:.5 }
+
+/* ================================
+   TOAST ACTUALIZACIÓN
    ================================ */
 #update-toast{
   position:fixed; left:50%; transform:translateX(-50%);
