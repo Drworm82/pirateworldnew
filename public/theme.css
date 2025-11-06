@@ -30,7 +30,7 @@ body{
 /* ──────────────── FONDO ANIMADO DE LA APP (cielo + mar) ──────────────── */
 .app-bg{position:fixed;inset:0;z-index:-1;overflow:hidden}
 
-/* CIELO (gradiente que respira) */
+/* CIELO */
 .sky-main{
   position:absolute; inset:0; overflow:hidden;
   background:linear-gradient(to bottom,#86b6ff 0%,#cfe3ff 60%,#f9fbff 100%);
@@ -47,8 +47,7 @@ body{
 .clouds-main .layer{position:absolute;inset:0;background-repeat:repeat-x;background-size:600px 180px;opacity:.22;filter:blur(.2px)}
 .clouds-main .back{
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='180'><g fill='white' opacity='.9'><ellipse cx='120' cy='80' rx='100' ry='32'/><ellipse cx='260' cy='70' rx='120' ry='36'/><ellipse cx='420' cy='85' rx='110' ry='34'/></g></svg>");
-  animation:cloudsBack 150s linear infinite;
-  opacity:.16;
+  animation:cloudsBack 150s linear infinite; opacity:.16;
 }
 .clouds-main .front{
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='180'><g fill='white'><ellipse cx='90' cy='70' rx='90' ry='30'/><ellipse cx='210' cy='62' rx='110' ry='34'/><ellipse cx='360' cy='78' rx='95' ry='30'/><ellipse cx='520' cy='64' rx='105' ry='32'/></g></svg>");
@@ -57,24 +56,18 @@ body{
 @keyframes cloudsFront{from{background-position:0 0}to{background-position:-600px 0}}
 @keyframes cloudsBack{from{background-position:0 0}to{background-position:-900px 0}}
 
-/* GAVIOTA LEJANA EN LA APP */
+/* GAVIOTA LEJANA */
 .gull-main{
   position:absolute; top:14vh; left:110%;
-  width:min(12vw, 84px); height:auto; opacity:.75;
+  width:min(12vw,84px); height:auto; opacity:.75;
   filter:drop-shadow(0 2px 2px rgba(0,0,0,.2));
   animation:gullMainFly 22s linear infinite, gullFlap 1.2s ease-in-out infinite;
   pointer-events:none;
 }
-@keyframes gullMainFly{
-  0%{ transform:translateX(0) scaleX(-1) }
-  100%{ transform:translateX(-210%) scaleX(-1) }
-}
-@keyframes gullFlap{
-  0%,100%{ transform-origin:50% 60% }
-  50%{ transform-origin:50% 60%; transform:rotate(-6deg) }
-}
+@keyframes gullMainFly{0%{transform:translateX(0) scaleX(-1)}100%{transform:translateX(-210%) scaleX(-1)}}
+@keyframes gullFlap{0%,100%{transform-origin:50% 60%}50%{transform-origin:50% 60%;transform:rotate(-6deg)}}
 
-/* MAR (olas) */
+/* MAR */
 .sea-main{position:absolute;left:0;right:0;bottom:-12vh;height:34vh;opacity:.92;pointer-events:none}
 .sea-main .layer{position:absolute;inset:0;background-repeat:repeat-x;background-size:200px 100px}
 .sea-main .front{
@@ -93,6 +86,16 @@ body{
 @keyframes waveFront{from{background-position:0 0,100px 0}to{background-position:200px 0,300px 0}}
 @keyframes waveBack{from{background-position:0 0,120px 0}to{background-position:240px 0,360px 0}}
 .sea-main::before{content:"";position:absolute;inset:0;background:linear-gradient(to top, rgba(24,57,110,.85), rgba(24,57,110,.55) 45%, transparent 80%);pointer-events:none}
+
+/* ─────────────── CTA INSTALAR ─────────────── */
+.install-cta{
+  display:inline-flex; align-items:center; gap:.6rem;
+  padding:.75rem 1rem; border-radius:12px;
+  border:1px solid #0b132b; background:#0b132b; color:#fff;
+  font-weight:600; cursor:pointer;
+  box-shadow:0 6px 22px rgba(0,0,0,.18);
+}
+.install-cta[disabled]{opacity:.5;cursor:not-allowed}
 
 /* TOAST */
 #update-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:max(16px,env(safe-area-inset-bottom));background:#0b132b;color:#fff;border-radius:12px;padding:12px 14px;font-size:14px;display:flex;gap:10px;align-items:center;box-shadow:0 10px 30px rgba(0,0,0,.35);animation:slideUp .3s ease}
