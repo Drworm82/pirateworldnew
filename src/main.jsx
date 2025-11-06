@@ -1,94 +1,77 @@
-import React from "react";
+// src/main.jsx
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import "./registerSW";
 import Splash from "./Splash";
+import "./registerSW";
 
-/**
- * - Muestra Splash ~1.2s y luego la pantalla principal.
- * - Botón "Instalar aplicación" si hay beforeinstallprompt.
- * - Mensaje verde "Aplicación instalada correctamente." si:
- *   a) ya está en standalone, o b) se dispara appinstalled.
- */
+function App() {
+  const [showSplash, setShowSplash] = useState(true);
 
-class Root extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      showSplash: true,
-      isStandalone:
-        window.matchMedia?.("(display-mode: standalone)")?.matches ||
-        window.navigator.standalone === true,
-      installedBanner: false,
-    };
-    this.deferredPrompt = null;
-  }
+  // ---- PWA install UX ----
+  const deferred = useRef(null);
+  const [canInstall, setCanInstall] = useState(false);
+  const [installed, setInstalled] = useState(false);
 
-  componentDidMount() {
-    // fin del splash
-    setTimeout(() => this.setState({ showSplash: false }), 1200);
+  const isStandalone =
+    window.matchMedia?.("(display-mode: standalone)")?.matches ||
+    window.navigator.standalone === true;
 
-    // si ya está instalada, mostrar banner
-    if (this.state.isStandalone || localStorage.getItem("pw_installed") === "1") {
-      this.setState({ installedBanner: true });
-    }
-
-    // PWA install prompt
-    window.addEventListener("beforeinstallprompt", (e) => {
+  useEffect(() => {
+    const onBIP = (e) => {
       e.preventDefault();
-      this.deferredPrompt = e;
-      const btn = document.getElementById("install-btn");
-      if (btn) btn.style.display = "inline-flex";
-    });
+      deferred.current = e;
+      setCanInstall(true);
+    };
+    const onInstalled = () => {
+      setInstalled(true);
+      setCanInstall(false);
+    };
+    window.addEventListener("beforeinstallprompt", onBIP);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onBIP);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
 
-    window.addEventListener("appinstalled", () => {
-      localStorage.setItem("pw_installed", "1");
-      this.setState({ installedBanner: true });
-      const btn = document.getElementById("install-btn");
-      if (btn) btn.style.display = "none";
-    });
+  async function handleInstall() {
+    if (!deferred.current) return alert("Si no aparece el diálogo: menú ⋮ → Instalar aplicación.");
+    deferred.current.prompt();
+    const { outcome } = await deferred.current.userChoice;
+    deferred.current = null;
+    if (outcome === "accepted") setInstalled(true);
+    setCanInstall(false);
   }
 
-  handleInstall = async () => {
-    if (!this.deferredPrompt) {
-      alert("Si no aparece el diálogo, usa: ⋮ → Agregar a la pantalla principal.");
-      return;
-    }
-    this.deferredPrompt.prompt();
-    const { outcome } = await this.deferredPrompt.userChoice;
-    this.deferredPrompt = null;
-    if (outcome === "accepted") {
-      const btn = document.getElementById("install-btn");
-      if (btn) btn.style.display = "none";
-    }
-  };
+  return (
+    <>
+      {showSplash && <Splash onDone={() => setShowSplash(false)} />}
 
-  renderMain() {
-    const { isStandalone, installedBanner } = this.state;
-    return (
-      <div className="app-root">
-        <div className="bg-map" aria-hidden="true"></div>
+      {/* capa app */}
+      <main className={`app-shell ${showSplash ? "blurred" : ""}`}>
+        {/* fondo tipo mapa con rejilla y olas muy sutiles */}
+        <div className="bg-grid">
+          <div className="bg-wave a" />
+          <div className="bg-wave b" />
+        </div>
 
-        <main className="hero">
+        <section className="hero">
           <h1>PirateWorld</h1>
-          <p className="subtitle">Espéralo pronto…</p>
+          <p>Espéralo pronto…</p>
 
-          {!isStandalone && (
-            <button id="install-btn" onClick={this.handleInstall} className="cta" style={{ display: "none" }}>
+          {!isStandalone && canInstall && (
+            <button className="btn" onClick={handleInstall}>
               ⤓ Instalar aplicación
             </button>
           )}
 
-          <p id="post-install-tip" className="hint" aria-live="polite">
-            {installedBanner ? "✅ Aplicación instalada correctamente." : ""}
-          </p>
-        </main>
-      </div>
-    );
-  }
-
-  render() {
-    return this.state.showSplash ? <Splash /> : this.renderMain();
-  }
+          {!isStandalone && installed && (
+            <div className="hint ok">✅ Aplicación instalada correctamente.</div>
+          )}
+        </section>
+      </main>
+    </>
+  );
 }
 
-createRoot(document.getElementById("root")).render(<Root />);
+createRoot(document.getElementById("root")).render(<App />);
