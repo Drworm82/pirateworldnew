@@ -1,53 +1,99 @@
-/* ────────── Splash limpio con brújula ────────── */
-.app-splash {
-  position: fixed;
-  inset: 0;
-  background: #0b132b;
-  color: #fff;
+/* ===== Pantalla principal (sin gaviota), con mapa náutico suave ===== */
+:root {
+  --bg: #0b132b;         /* azul noche */
+  --ink: #ffffff;        /* texto */
+  --muted: #d8dee9;      /* texto secundario */
+  --btn-bg: #ffffff1a;   /* botón */
+  --btn-bg-hover: #ffffff2a;
+  --btn-border: #ffffff33;
+}
+
+/* contenedor base */
+.app-root {
+  position: relative;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100svh;
+  overflow: hidden;
+}
+
+/* “mapa” topográfico muy sutil (líneas blancas finas con animación lenta) */
+.bg-map {
+  position: absolute;
+  inset: -20% -20% -20% -20%;
+  z-index: 0;
+  opacity: 0.12;
+  background-color: var(--bg);
+  background-image:
+    url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'>\
+  <defs>\
+    <pattern id='grid' width='40' height='40' patternUnits='userSpaceOnUse'>\
+      <path d='M40 0H0V40' fill='none' stroke='white' stroke-opacity='.12' stroke-width='1'/>\
+    </pattern>\
+    <pattern id='contours' width='200' height='200' patternUnits='userSpaceOnUse'>\
+      <path d='M10 50 C80 10,120 90,190 50 M0 140 C60 110,140 170,200 140 M30 10 C90 40,110 0,180 20' \
+            fill='none' stroke='white' stroke-opacity='.10' stroke-width='1'/>\
+    </pattern>\
+  </defs>\
+  <rect width='400' height='400' fill='url(%23grid)'/>\
+  <rect width='400' height='400' fill='url(%23contours)'/>\
+</svg>");
+  background-size: 640px 640px, 640px 640px;
+  animation: mapDrift 80s linear infinite;
+}
+
+@keyframes mapDrift {
+  0%   { transform: translate3d(0,0,0) scale(1); }
+  50%  { transform: translate3d(-4%, -3%, 0) scale(1.03); }
+  100% { transform: translate3d(0,0,0) scale(1); }
+}
+
+/* zona de contenido: más compacta y centrada */
+.hero {
+  position: relative;
+  z-index: 1;
+  min-height: 70svh;         /* menos “larga” que 100svh */
+  padding: 10svh 16px 8svh;  /* la empuja un poco hacia arriba */
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.6s ease-out;
-  z-index: 9999;
+  text-align: center;
+  gap: 12px;
 }
 
-.app-splash.hide {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.splash-compass {
-  width: 120px;
-  height: 120px;
-  margin-bottom: 24px;
-  animation: compassRotate 40s linear infinite;
-  filter: drop-shadow(0 4px 12px rgba(255, 255, 255, 0.2));
-}
-
-@keyframes compassRotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.brand h1 {
-  font-size: 1.8rem;
+.hero h1 {
+  font-size: clamp(2rem, 5.5vw, 3rem);
   margin: 0;
+  letter-spacing: 0.5px;
 }
 
-.brand .tagline {
-  font-size: 0.9rem;
-  color: #ddd;
+.subtitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.05rem;
 }
 
-.badge {
-  margin-top: 0.5rem;
-  background: rgba(255, 255, 255, 0.1);
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 0.85rem;
+/* botón instalar */
+.cta {
+  margin-top: 10px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--btn-border);
+  background: var(--btn-bg);
+  color: var(--ink);
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(2px);
+  transition: background 0.2s ease, transform 0.05s ease;
+}
+.cta:active { transform: translateY(1px); }
+.cta:hover  { background: var(--btn-bg-hover); }
+
+/* tip post-instalada */
+.hint {
+  min-height: 1.2em;
+  color: var(--muted);
+  font-size: 0.95rem;
 }
