@@ -6,9 +6,10 @@ export default function Splash({ hidden }) {
       aria-hidden={hidden ? "true" : "false"}
     >
       <div className="brand safe">
-        <h1>PirateWorld</h1>
+        <span className="badge">PirateWorld</span>
+        <h1>¡Bienvenido a bordo!</h1>
         <div className="dot" />
-        <small style={{ opacity: 0.8 }}>Cargando…</small>
+        <small className="tagline">Preparando el navío…</small>
       </div>
     </div>
   );
