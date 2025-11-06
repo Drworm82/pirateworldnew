@@ -1,6 +1,11 @@
+// src/lib/supaApi.js
+// Cliente + helpers de Supabase para PirateWorld (frontend)
+// - Lee credenciales desde .env (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY)
+//   o desde localStorage (guardadas con la tarjeta Setup de /Diag)
+
 import { createClient } from '@supabase/supabase-js';
 
-/* ───────── Runtime ENV ───────── */
+/* ───────────────────── Runtime ENV ───────────────────── */
 function readEnv() {
   const url =
     import.meta.env.VITE_SUPABASE_URL ||
@@ -28,7 +33,7 @@ export function saveRuntimeEnv(url, key) {
 export function getClient() {
   if (_supabase) return _supabase;
   const { url, key } = readEnv();
-  if (!url || !key) return null;
+  if (!url || !key) return null; // la UI de /Diag mostrará Setup
   _supabase = createClient(url, key, {
     auth: { persistSession: false },
     global: { fetch: window.fetch.bind(window) },
@@ -36,45 +41,26 @@ export function getClient() {
   return _supabase;
 }
 
-/* ───────── Usuarios ───────── */
+/* ───────────────────── Usuarios ───────────────────── */
+// Prefiere RPC ensure_user(p_email text) si existe; si no, fallback a select/insert
 export async function ensureUser(email) {
   const sb = getClient();
   if (!sb) throw new Error('Supabase no configurado.');
 
-  // 1) ensure_user
-  try {
-    const r1 = await sb.rpc('ensure_user', { p_email: email });
-    if (!r1.error && r1.data != null) {
-      const row = Array.isArray(r1.data) ? r1.data[0] : r1.data;
-      if (row && (row.id || row.email)) {
-        return {
-          user: { id: row.id, email: row.email, soft_coins: row.soft_coins ?? 0 },
-          created: undefined,
-        };
-      }
-    }
-  } catch {}
+  // Intento 1: RPC ensure_user
+  const tryRpc = await sb.rpc('ensure_user', { p_email: email });
+  if (!tryRpc.error && tryRpc.data) {
+    // RPC devuelve jsonb { id, email, soft_coins }
+    return { user: tryRpc.data, created: undefined };
+  }
 
-  // 2) create_or_load_user
-  try {
-    const r2 = await sb.rpc('create_or_load_user', { p_email: email });
-    if (!r2.error && r2.data != null) {
-      const row = Array.isArray(r2.data) ? r2.data[0] : r2.data;
-      if (row && (row.id || row.email)) {
-        return {
-          user: { id: row.id, email: row.email, soft_coins: row.soft_coins ?? 0 },
-          created: undefined,
-        };
-      }
-    }
-  } catch {}
-
-  // 3) Fallback a tabla
+  // Intento 2: fallback tabla users
   const { data: found, error: e1 } = await sb
     .from('users')
     .select('id,email,soft_coins')
     .eq('email', email)
     .maybeSingle();
+
   if (e1 && e1.code !== 'PGRST116') throw e1;
   if (found) return { user: found, created: false };
 
@@ -83,6 +69,7 @@ export async function ensureUser(email) {
     .insert({ email, soft_coins: 0 })
     .select('id,email,soft_coins')
     .single();
+
   if (error) throw error;
   return { user: data, created: true };
 }
@@ -100,14 +87,17 @@ export async function getUserState({ userId, email }) {
     : null;
 }
 
-/* ───────── Ads RPC ───────── */
+/* ───────────────────── Ads RPC ─────────────────────
+   Back-end esperado (según tus definiciones actuales):
+   - ads_request_token(p_email text) returns jsonb -> { token, expires }  // SECURITY DEFINER + GRANT EXECUTE TO anon
+   - ads_verify_token(p_email text, p_token text) returns jsonb -> { ok:bool, coins_added?:int, error?:text }
+*/
 export async function adsRequestToken(email) {
   const sb = getClient();
   if (!sb) throw new Error('Supabase no configurado.');
   const { data, error } = await sb.rpc('ads_request_token', { p_email: email });
   if (error) throw error;
-  const row = Array.isArray(data) ? data[0] : data;
-  return row; // { token, expires_at }
+  return data; // { token, expires } (jsonb)
 }
 
 export async function adsVerifyToken(email, token) {
@@ -118,11 +108,10 @@ export async function adsVerifyToken(email, token) {
     p_token: token,
   });
   if (error) throw error;
-  const row = Array.isArray(data) ? data[0] : data;
-  return row; // { ok, reason?, soft_coins? }
+  return data; // { ok, coins_added?, error? } (jsonb)
 }
 
-/* ───────── Util ───────── */
+/* ───────────────────── Utilidades (opcional) ───────────────────── */
 export async function pingSupabase() {
   const sb = getClient();
   if (!sb) throw new Error('Supabase no configurado.');
