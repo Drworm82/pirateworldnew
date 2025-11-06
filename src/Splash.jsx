@@ -1,72 +1,79 @@
-export default function Splash() {
+// src/Splash.jsx
+import React, { useEffect, useState } from "react";
+
+export default function Splash({ onDone }) {
+  const [hide, setHide] = useState(false);
+
+  useEffect(() => {
+    // Ocultar splash ~1.4s con fade
+    const t = setTimeout(() => setHide(true), 1400);
+    const t2 = setTimeout(() => onDone?.(), 2000);
+    return () => {
+      clearTimeout(t);
+      clearTimeout(t2);
+    };
+  }, [onDone]);
+
   return (
-    <div style={styles.wrap} aria-label="Cargando">
-      <div style={styles.compassWrap}>
-        <svg viewBox="0 0 100 100" style={styles.svg} aria-hidden="true">
+    <div className={`splash-wrap ${hide ? "hide" : ""}`}>
+      {/* cielo */}
+      <div className="sky">
+        <div className="cloud cloud-1" />
+        <div className="cloud cloud-2" />
+        <div className="cloud cloud-3" />
+      </div>
+
+      {/* mar */}
+      <div className="ocean">
+        <div className="wave wave1" />
+        <div className="wave wave2" />
+        <div className="wave wave3" />
+      </div>
+
+      {/* brújula */}
+      <div className="compass">
+        <svg viewBox="0 0 120 120" className="compass-svg" aria-hidden>
           <defs>
-            <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="rgba(255,255,255,0.9)" />
-              <stop offset="100%" stopColor="rgba(255,255,255,0.1)" />
+            <radialGradient id="compassGlow" cx="50%" cy="50%" r="60%">
+              <stop offset="0%" stopColor="rgba(255,255,255,.25)" />
+              <stop offset="100%" stopColor="rgba(255,255,255,0)" />
             </radialGradient>
+            <linearGradient id="compassFace" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#e9eef6" />
+              <stop offset="100%" stopColor="#cfd8e6" />
+            </linearGradient>
           </defs>
 
-          {/* halo */}
-          <circle cx="50" cy="50" r="48" fill="url(#glow)"></circle>
+          <circle cx="60" cy="60" r="58" fill="url(#compassGlow)"></circle>
+          <circle cx="60" cy="60" r="46" fill="url(#compassFace)" stroke="#0b132b" strokeWidth="2" />
+          <circle cx="60" cy="60" r="38" fill="#0b132b" opacity=".12"></circle>
 
-          {/* aro */}
-          <circle cx="50" cy="50" r="38" fill="none" stroke="white" strokeOpacity="0.7" strokeWidth="2" />
-
-          {/* N S W E */}
-          <g fill="white" fillOpacity="0.85" fontSize="7" fontWeight="700" textAnchor="middle" dominantBaseline="middle">
-            <text x="50" y="16">N</text>
-            <text x="50" y="84">S</text>
-            <text x="16" y="52">W</text>
-            <text x="84" y="52">E</text>
+          {/* marcas NESW */}
+          <g fill="#0b132b" fontSize="9" fontFamily="system-ui, sans-serif" textAnchor="middle">
+            <text x="60" y="18">N</text>
+            <text x="60" y="110">S</text>
+            <text x="12" y="64">W</text>
+            <text x="108" y="64">E</text>
           </g>
 
           {/* aguja */}
-          <g>
-            <circle cx="50" cy="50" r="2.8" fill="#ffd166" />
-            <polygon points="50,12 56,50 50,53 44,50" fill="#0ea5e9">
-              <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="5s" repeatCount="indefinite" />
-            </polygon>
+          <g className="needle">
+            <polygon points="60,14 66,62 60,64 54,62" fill="#2b6cb0"></polygon>
+            <polygon points="60,106 54,58 60,56 66,58" fill="#1a202c"></polygon>
+            <circle cx="60" cy="60" r="4" fill="#ffcf4a"></circle>
           </g>
+
+          {/* aro */}
+          <circle cx="60" cy="60" r="46" fill="none" stroke="#0b132b" strokeWidth="2" />
         </svg>
       </div>
 
-      <h1 style={styles.h1}>PirateWorld</h1>
-      <p style={styles.sub}>Base PWA lista. Edite libremente.</p>
-      <div style={styles.progress}>Cargando…</div>
+      {/* texto */}
+      <div className="splash-title">
+        <h1>PirateWorld</h1>
+        <p>Base PWA lista. Edite libremente.</p>
+        <div className="splash-pill">Cargando…</div>
+      </div>
     </div>
   );
 }
-
-const styles = {
-  wrap: {
-    minHeight: "100svh",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-    background: "#0b132b",
-    color: "#fff",
-    textAlign: "center",
-  },
-  compassWrap: {
-    width: 140,
-    height: 140,
-    filter: "drop-shadow(0 6px 18px rgba(0,0,0,.45))",
-    marginBottom: 12,
-  },
-  svg: { width: "100%", height: "100%" },
-  h1: { margin: 0, fontSize: "clamp(1.8rem,5.2vw,2.4rem)", letterSpacing: 0.5 },
-  sub: { margin: 0, opacity: 0.8 },
-  progress: {
-    marginTop: 8,
-    padding: "8px 14px",
-    borderRadius: 12,
-    background: "rgba(255,255,255,.08)",
-    border: "1px solid rgba(255,255,255,.12)",
-  },
-};
