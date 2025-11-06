@@ -1,8 +1,6 @@
-// Cliente + helpers de Supabase para PirateWorld (frontend)
-
 import { createClient } from '@supabase/supabase-js';
 
-/* ───────────────────── Runtime ENV ───────────────────── */
+/* ───────── Runtime ENV ───────── */
 function readEnv() {
   const url =
     import.meta.env.VITE_SUPABASE_URL ||
@@ -38,40 +36,40 @@ export function getClient() {
   return _supabase;
 }
 
-/* ───────────────────── Usuarios ───────────────────── */
-/**
- * Acepta RPCs que devuelven jsonb o TABLE (array de filas).
- * Intenta: ensure_user(p_email) → create_or_load_user(p_email) → tabla users.
- */
+/* ───────── Usuarios ───────── */
 export async function ensureUser(email) {
   const sb = getClient();
   if (!sb) throw new Error('Supabase no configurado.');
 
   // 1) ensure_user
-  const r1 = await sb.rpc('ensure_user', { p_email: email }).catch(() => null);
-  if (r1 && !r1.error && r1.data != null) {
-    const row = Array.isArray(r1.data) ? r1.data[0] : r1.data;
-    if (row && (row.id || row.email)) {
-      return {
-        user: { id: row.id, email: row.email, soft_coins: row.soft_coins ?? 0 },
-        created: undefined,
-      };
+  try {
+    const r1 = await sb.rpc('ensure_user', { p_email: email });
+    if (!r1.error && r1.data != null) {
+      const row = Array.isArray(r1.data) ? r1.data[0] : r1.data;
+      if (row && (row.id || row.email)) {
+        return {
+          user: { id: row.id, email: row.email, soft_coins: row.soft_coins ?? 0 },
+          created: undefined,
+        };
+      }
     }
-  }
+  } catch {}
 
   // 2) create_or_load_user
-  const r2 = await sb.rpc('create_or_load_user', { p_email: email }).catch(() => null);
-  if (r2 && !r2.error && r2.data != null) {
-    const row = Array.isArray(r2.data) ? r2.data[0] : r2.data;
-    if (row && (row.id || row.email)) {
-      return {
-        user: { id: row.id, email: row.email, soft_coins: row.soft_coins ?? 0 },
-        created: undefined,
-      };
+  try {
+    const r2 = await sb.rpc('create_or_load_user', { p_email: email });
+    if (!r2.error && r2.data != null) {
+      const row = Array.isArray(r2.data) ? r2.data[0] : r2.data;
+      if (row && (row.id || row.email)) {
+        return {
+          user: { id: row.id, email: row.email, soft_coins: row.soft_coins ?? 0 },
+          created: undefined,
+        };
+      }
     }
-  }
+  } catch {}
 
-  // 3) Fallback directo a tabla
+  // 3) Fallback a tabla
   const { data: found, error: e1 } = await sb
     .from('users')
     .select('id,email,soft_coins')
@@ -102,13 +100,12 @@ export async function getUserState({ userId, email }) {
     : null;
 }
 
-/* ───────────────────── Ads RPC ───────────────────── */
+/* ───────── Ads RPC ───────── */
 export async function adsRequestToken(email) {
   const sb = getClient();
   if (!sb) throw new Error('Supabase no configurado.');
   const { data, error } = await sb.rpc('ads_request_token', { p_email: email });
   if (error) throw error;
-  // puede ser jsonb o TABLE; normalizamos
   const row = Array.isArray(data) ? data[0] : data;
   return row; // { token, expires_at }
 }
@@ -125,7 +122,7 @@ export async function adsVerifyToken(email, token) {
   return row; // { ok, reason?, soft_coins? }
 }
 
-/* ───────────────────── Util ───────────────────── */
+/* ───────── Util ───────── */
 export async function pingSupabase() {
   const sb = getClient();
   if (!sb) throw new Error('Supabase no configurado.');
