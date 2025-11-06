@@ -1,7 +1,6 @@
 import { createRoot } from "react-dom/client";
 import "./registerSW";
 
-// Pantalla principal con fondo de “mapa” suave y botón Instalar
 function App() {
   let deferredPrompt = null;
 
@@ -9,16 +8,14 @@ function App() {
     window.matchMedia?.("(display-mode: standalone)")?.matches ||
     window.navigator.standalone === true;
 
-  function show(btnId, show) {
+  function show(btnId, visible) {
     const el = document.getElementById(btnId);
-    if (el) el.style.display = show ? "inline-flex" : "none";
+    if (el) el.style.display = visible ? "inline-flex" : "none";
   }
 
-  // Manejo del prompt de instalación
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    // mostrar botón tras un pequeño delay
     setTimeout(() => show("install-btn", true), 400);
   });
 
@@ -30,9 +27,7 @@ function App() {
 
   async function handleInstall() {
     if (!deferredPrompt) {
-      alert(
-        "Si no aparece el diálogo, usa: ⋮ → Agregar a la pantalla principal."
-      );
+      alert("Si no aparece el diálogo, usa: ⋮ → Agregar a la pantalla principal.");
       return;
     }
     deferredPrompt.prompt();
@@ -43,21 +38,16 @@ function App() {
 
   return (
     <div className="app-root">
-      {/* Fondo tipo mapa náutico */}
+      {/* fondo mapa sutil */}
       <div className="bg-map" aria-hidden="true"></div>
 
-      {/* Contenido */}
+      {/* layout más corto y centrado */}
       <main className="hero">
         <h1>PirateWorld</h1>
         <p className="subtitle">Espéralo pronto…</p>
 
         {!isStandalone && (
-          <button
-            id="install-btn"
-            onClick={handleInstall}
-            className="cta"
-            style={{ display: "none" }}
-          >
+          <button id="install-btn" onClick={handleInstall} className="cta" style={{ display: "none" }}>
             ⤓ Instalar aplicación
           </button>
         )}
