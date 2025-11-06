@@ -3,18 +3,22 @@ import "./registerSW";
 
 /**
  * PirateWorld — PWA base
- * Esta versión incluye:
- *  - Detección del evento de instalación.
- *  - Indicaciones elegantes según navegador.
- *  - Soporte para Chrome, Android y Desktop.
+ * Actualización:
+ * - Muestra “Instalada ✅” una vez que la app se instala.
+ * - Mensaje dinámico según el dispositivo.
+ * - Botón de instalación solo cuando corresponde.
  */
 
 function App() {
   let deferredPrompt = null;
+  let isInstalled = false;
 
+  // Detectar si ya está instalada
   const isStandalone =
     window.matchMedia?.("(display-mode: standalone)")?.matches ||
     window.navigator.standalone === true;
+
+  if (isStandalone) isInstalled = true;
 
   function showInstallButton() {
     const btn = document.getElementById("install-btn");
@@ -26,17 +30,29 @@ function App() {
     if (btn) btn.style.display = "none";
   }
 
+  // Escuchar evento antes de instalar
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     deferredPrompt = e;
     setTimeout(showInstallButton, 500);
   });
 
-  window.addEventListener("appinstalled", () => hideInstallButton());
+  // Escuchar cuando se instala
+  window.addEventListener("appinstalled", () => {
+    isInstalled = true;
+    hideInstallButton();
+    const msg = document.getElementById("install-hint");
+    if (msg) {
+      msg.innerHTML = "✅ Aplicación instalada correctamente.";
+      msg.style.color = "#008000";
+    }
+  });
 
   async function handleInstall() {
     if (!deferredPrompt) {
-      alert("Si no aparece el diálogo, usa el menú ⋮ → 'Agregar a la pantalla principal'.");
+      alert(
+        "Si no aparece el diálogo, usa el menú ⋮ → 'Agregar a la pantalla principal'."
+      );
       return;
     }
     deferredPrompt.prompt();
@@ -45,20 +61,24 @@ function App() {
     if (outcome === "accepted") hideInstallButton();
   }
 
-  // Mensaje elegante según dispositivo
+  // Mensaje adaptado según dispositivo
   const userAgent = navigator.userAgent.toLowerCase();
   let installHint = "";
 
-  if (userAgent.includes("android")) {
+  if (isInstalled) {
+    installHint = "✅ Aplicación instalada correctamente.";
+  } else if (userAgent.includes("android")) {
     installHint =
       "En Android: abre el menú ⋮ en Chrome y elige “Agregar a la pantalla principal”.";
   } else if (userAgent.includes("iphone") || userAgent.includes("ipad")) {
     installHint =
       "En iPhone/iPad: toca el botón “Compartir” y selecciona “Añadir a pantalla de inicio”.";
   } else {
-    installHint = "Desde tu navegador, selecciona “Instalar aplicación” o “Agregar a la pantalla principal”.";
+    installHint =
+      "Desde tu navegador, selecciona “Instalar aplicación” o “Agregar a la pantalla principal”.";
   }
 
+  // Render
   return (
     <main
       style={{
@@ -78,8 +98,9 @@ function App() {
       <p style={{ marginBottom: "1rem", fontSize: "1.1rem" }}>Espéralo pronto…</p>
 
       <p
+        id="install-hint"
         style={{
-          color: "#444",
+          color: isInstalled ? "#008000" : "#444",
           fontSize: "0.95rem",
           background: "#f5f5f5",
           padding: "0.8rem 1rem",
