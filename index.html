@@ -2,11 +2,21 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  />
   <meta name="theme-color" content="#0b132b" />
 
-  <link rel="icon" href="/favicon.ico" />
-  <link rel="manifest" href="/manifest.webmanifest" />
+  <!-- Estilos globales -->
+  <link rel="stylesheet" href="/theme.css" />
+
+  <!-- Favicon (deja ambos por compatibilidad) -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+
+  <!-- PWA manifest -->
+  <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
 
   <!-- iOS PWA hints -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -16,8 +26,8 @@
 
   <title>PirateWorld</title>
 </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
 </html>
