@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import Splash from "./Splash";
 import SetupSupabase from "./pages/SetupSupabase.jsx";
 import UserDemo from "./pages/UserDemo.jsx";
+import Diag from "./pages/Diag.jsx";               // 👈 NUEVO
 import "./registerSW";
 
 function useHashRoute() {
@@ -25,35 +26,51 @@ function App() {
   const [canInstall, setCanInstall] = useState(false);
   const [installed, setInstalled] = useState(
     window.matchMedia?.("(display-mode: standalone)")?.matches ||
-    window.navigator.standalone === true ||
-    localStorage.getItem("pw_installed") === "1"
+      window.navigator.standalone === true ||
+      localStorage.getItem("pw_installed") === "1"
   );
   const isStandalone =
     window.matchMedia?.("(display-mode: standalone)")?.matches ||
     window.navigator.standalone === true;
 
   useEffect(() => {
-    const onBIP = (e) => { e.preventDefault(); deferred.current = e; setCanInstall(true); };
-    const onInstalled = () => { localStorage.setItem("pw_installed","1"); setInstalled(true); setCanInstall(false); };
+    const onBIP = (e) => {
+      e.preventDefault();
+      deferred.current = e;
+      setCanInstall(true);
+    };
+    const onInstalled = () => {
+      localStorage.setItem("pw_installed", "1");
+      setInstalled(true);
+      setCanInstall(false);
+    };
     window.addEventListener("beforeinstallprompt", onBIP);
     window.addEventListener("appinstalled", onInstalled);
-    return () => { window.removeEventListener("beforeinstallprompt", onBIP); window.removeEventListener("appinstalled", onInstalled); };
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onBIP);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
   }, []);
 
   async function handleInstall() {
-    if (!deferred.current) { alert("Si no aparece el diálogo: menú ⋮ → Instalar aplicación."); return; }
+    if (!deferred.current) {
+      alert("Si no aparece el diálogo: menú ⋮ → Instalar aplicación.");
+      return;
+    }
     deferred.current.prompt();
     const { outcome } = await deferred.current.userChoice;
-    deferred.current = null; setCanInstall(false);
+    deferred.current = null;
+    setCanInstall(false);
     if (outcome === "accepted") setInstalled(true);
   }
 
   function Nav() {
     return (
       <nav className="nav">
-        <a href="#/" className={route==="/" ? "active":""}>Inicio</a>
-        <a href="#/setup" className={route==="/setup" ? "active":""}>Setup Supabase</a>
-        <a href="#/user" className={route==="/user" ? "active":""}>Demo usuario</a>
+        <a href="#/" className={route === "/" ? "active" : ""}>Inicio</a>
+        <a href="#/setup" className={route === "/setup" ? "active" : ""}>Setup Supabase</a>
+        <a href="#/user" className={route === "/user" ? "active" : ""}>Demo usuario</a>
+        <a href="#/diag" className={route === "/diag" ? "active" : ""}>Diag</a> {/* 👈 NUEVO */}
       </nav>
     );
   }
@@ -89,6 +106,7 @@ function App() {
           {route === "/" && <Home />}
           {route === "/setup" && <SetupSupabase />}
           {route === "/user" && <UserDemo />}
+          {route === "/diag" && <Diag />}             {/* 👈 NUEVO */}
         </div>
       </main>
     </>

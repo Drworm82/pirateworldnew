@@ -1,6 +1,7 @@
 // src/pages/Diag.jsx
-// Página de diagnóstico mínima con botón “Ver anuncio (+1)”
-// Flujo: ads_request_token(p_email) → esperar 2s → ads_verify_token(p_email, p_token) → refrescar saldo
+// Página de diagnóstico con botón “Ver anuncio (+1)”
+// Flujo: ads_request_token → esperar 2s → ads_verify_token → refrescar saldo
+// Normaliza ok de BE (true | "true" | "t" | 1) y éxito por delta de saldo.
 
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -16,6 +17,7 @@ const card = (extra={}) => ({ background:'#111722', padding:12, borderRadius:12,
 const box  = (extra={}) => ({ background:'#0f1420', padding:12, borderRadius:10, border:'1px solid #1f2937', ...extra });
 const row  = (extra={}) => ({ display:'flex', gap:8, alignItems:'center', ...extra });
 const muted = { color:'#9aa6b2' };
+const Big = ({children}) => <div style={{fontSize:36,fontWeight:800,margin:'8px 0'}}>{children}</div>;
 
 const Pill = ({ status }) => {
   const map = {
@@ -58,7 +60,7 @@ const Toast = ({ kind='info', message, onClose }) => {
   );
 };
 
-// ────────────── Setup ──────────────
+// ────────────── Setup (runtime env) ──────────────
 function SetupCard() {
   const [url,setUrl]=useState(localStorage.getItem('VITE_SUPABASE_URL')||'');
   const [key,setKey]=useState(localStorage.getItem('VITE_SUPABASE_ANON_KEY')||'');
@@ -69,10 +71,10 @@ function SetupCard() {
       <p style={muted}>Faltan variables de entorno de Supabase.</p>
       <div style={card({display:'grid',gap:8})}>
         <label>VITE_SUPABASE_URL</label>
-        <input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://xxxx.supabase.co"
+        <input value={url} onChange={(e)=>setUrl(e.target.value)} placeholder="https://xxxx.supabase.co"
                style={{padding:'10px 12px',borderRadius:8,border:'1px solid #334155',background:'#0b1220',color:'#e6edf3'}}/>
         <label>VITE_SUPABASE_ANON_KEY</label>
-        <input value={key} onChange={e=>setKey(e.target.value)} placeholder="eyJhbGciOiJI..."
+        <input value={key} onChange={(e)=>setKey(e.target.value)} placeholder="eyJhbGciOiJI..."
                style={{padding:'10px 12px',borderRadius:8,border:'1px solid #334155',background:'#0b1220',color:'#e6edf3'}}/>
         <div style={row({marginTop:8})}>
           <button onClick={()=>{saveRuntimeEnv(url.trim(),key.trim());setMsg('Guardado. Recarga la página.');}}
@@ -91,19 +93,18 @@ export default function Diag() {
   if (!isConfigured()) return <SetupCard />;
 
   const [email, setEmail] = useState(DEFAULT_EMAIL);
-  const [user, setUser] = useState(null);           // { id, email, soft_coins }
+  const [user, setUser]   = useState(null);           // { id, email, soft_coins }
   const [status, setStatus] = useState('Vista de diagnóstico mínima funcionando.');
 
-  // Estado del anuncio
-  const [adStatus, setAdStatus] = useState('idle'); // idle | req | play | ver | ok | fail
+  const [adStatus, setAdStatus] = useState('idle');   // idle | req | play | ver | ok | fail
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState({ kind:'info', message:'' });
   const hideTimer = useRef(null);
 
-  const setToastAuto = (kind, message, autoMs = 3500) => {
+  const setToastAuto = (kind, message, ms = 3500) => {
     clearTimeout(hideTimer.current);
     setToast({ kind, message });
-    if (kind !== 'error') hideTimer.current = setTimeout(() => setToast({ kind:'info', message:'' }), autoMs);
+    if (kind !== 'error') hideTimer.current = setTimeout(() => setToast({ kind:'info', message:'' }), ms);
   };
   useEffect(() => () => clearTimeout(hideTimer.current), []);
 
@@ -123,19 +124,35 @@ export default function Diag() {
   };
 
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  const normalizeOk = (ok) => ok === true || ok === 'true' || ok === 't' || ok === 1;
 
-  // Flujo FE-04: pedir token → esperar 2s (simula video) → verificar → refrescar saldo
+  async function verifyOnce(pEmail, token) {
+    return await adsVerifyToken(pEmail, token);
+  }
+
+  const refreshBalance = async () => {
+    if (!user?.id) return null;
+    const fresh = await getUserState({ userId: user.id });
+    if (fresh?.soft_coins != null) {
+      setUser(u => ({ ...(u ?? {}), soft_coins: fresh.soft_coins, id: fresh.user_id ?? user.id, email: fresh.email ?? user.email }));
+    }
+    return fresh;
+  };
+
+  // Flujo: pedir token → esperar 2s → verificar → si expiró, reintentar 1 vez
   const onWatchAd = async () => {
     if (!user?.email) {
       setToast({ kind:'error', message:'Primero carga o crea el usuario.' });
       return;
     }
+    const before = Number(user?.soft_coins ?? 0);
+
     setAdStatus('req');
     setStatus('Solicitando token…');
     setToast({ kind:'info', message:'' });
 
     try {
-      const tok = await adsRequestToken(user.email);
+      let tok = await adsRequestToken(user.email);
       if (!tok?.token) throw new Error('No se recibió token.');
 
       setAdStatus('play');
@@ -144,25 +161,34 @@ export default function Diag() {
 
       setAdStatus('ver');
       setStatus('Verificando token…');
-      const ver = await adsVerifyToken(user.email, tok.token);
 
-      if (ver?.ok) {
-        const fresh = await getUserState({ userId: user.id });
-        if (fresh?.soft_coins != null) {
-          setUser((u) => ({ ...(u ?? {}), soft_coins: fresh.soft_coins, id: fresh.user_id ?? user.id, email: fresh.email ?? user.email }));
-        }
+      let ver = await verifyOnce(user.email, String(tok.token));
+      // reintento si el BE dice token inválido/expirado
+      if (!normalizeOk(ver?.ok) && (ver?.reason === 'token_expired' || ver?.reason === 'invalid_token')) {
+        const tok2 = await adsRequestToken(user.email);
+        if (tok2?.token) ver = await verifyOnce(user.email, String(tok2.token));
+      }
+
+      // Siempre refrescamos saldo para decidir por delta
+      const fresh = await refreshBalance();
+      const after = Number(fresh?.soft_coins ?? user?.soft_coins ?? 0);
+      const gained = after > before;
+
+      if (normalizeOk(ver?.ok) || gained) {
         setAdStatus('ok');
         setStatus('Anuncio verificado (+1 doblón).');
         setToastAuto('success', '✅ +1 doblón ganado');
       } else {
         setAdStatus('fail');
         setStatus('Verificación fallida.');
-        setToast({ kind:'error', message: `❌ ${ver?.error || 'Token inválido o vencido'}` });
+        setToast({ kind:'error', message: `❌ ${ver?.reason || 'Token inválido o vencido'}` });
       }
     } catch (e) {
       setAdStatus('fail');
       setStatus('Error en flujo de anuncio.');
       setToast({ kind:'error', message: e?.message || String(e) });
+      // Intentamos al menos reflejar saldo actual
+      await refreshBalance();
     }
   };
 
@@ -200,15 +226,18 @@ export default function Diag() {
 
           <div style={box()}>
             <h3 style={{margin:0,marginBottom:8}}>Saldo</h3>
-            <div style={{fontSize:36,fontWeight:800,margin:'8px 0'}}>
-              {user?.soft_coins ?? 0}
-            </div>
+            <Big>{user?.soft_coins ?? 0}</Big>
             <p style={{...muted,margin:'4px 0'}}>1 anuncio = 1 doblón · 100 doblones = 1 parcela</p>
-            <button onClick={onWatchAd} disabled={!user || ['req','play','ver'].includes(adStatus)}
-              style={{padding:'10px 14px',borderRadius:8,background:'#101826',color:'#e6edf3',border:'1px solid #334155',cursor:'pointer',
-                      opacity:(!user || ['req','play','ver'].includes(adStatus))?0.6:1}}>
-              {adStatus==='req' ? 'Solicitando…' : adStatus==='play' ? 'Viendo…' : adStatus==='ver' ? 'Verificando…' : 'Ver anuncio (+1)'}
-            </button>
+            <div style={{display:'flex', gap:10}}>
+              <button onClick={onWatchAd} disabled={!user}
+                style={{padding:'10px 14px',borderRadius:8,background:'#0ea5b1',color:'#02212a',border:'1px solid #155e75',cursor:'pointer'}}>
+                Ver anuncio (+1)
+              </button>
+              <button onClick={async ()=>{ setStatus('Refrescando saldo…'); await (async()=>{await (await getUserState({userId:user?.id}))})(); await (async()=>{const fresh=await getUserState({userId:user?.id}); if(fresh?.soft_coins!=null){setUser(u=>({...u,soft_coins:fresh.soft_coins,id:fresh.user_id??u.id,email:fresh.email??u.email}))}})(); setStatus('Saldo actualizado.'); }}
+                style={{padding:'10px 14px',borderRadius:8,background:'#101826',color:'#e6edf3',border:'1px solid #334155',cursor:'pointer'}}>
+                ⟳ Refrescar saldo
+              </button>
+            </div>
           </div>
         </div>
       </div>

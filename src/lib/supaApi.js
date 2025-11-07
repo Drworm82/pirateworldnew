@@ -1,7 +1,5 @@
 // src/lib/supaApi.js
 // Cliente + helpers de Supabase para PirateWorld (frontend)
-// - Lee credenciales desde .env (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY)
-//   o desde localStorage (guardadas con la tarjeta Setup de /Diag)
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -33,7 +31,7 @@ export function saveRuntimeEnv(url, key) {
 export function getClient() {
   if (_supabase) return _supabase;
   const { url, key } = readEnv();
-  if (!url || !key) return null; // la UI de /Diag mostrará Setup
+  if (!url || !key) return null;
   _supabase = createClient(url, key, {
     auth: { persistSession: false },
     global: { fetch: window.fetch.bind(window) },
@@ -42,34 +40,26 @@ export function getClient() {
 }
 
 /* ───────────────────── Usuarios ───────────────────── */
-// Prefiere RPC ensure_user(p_email text) si existe; si no, fallback a select/insert
 export async function ensureUser(email) {
   const sb = getClient();
   if (!sb) throw new Error('Supabase no configurado.');
+  const clean = (email || '').trim().toLowerCase();
 
-  // Intento 1: RPC ensure_user
-  const tryRpc = await sb.rpc('ensure_user', { p_email: email });
-  if (!tryRpc.error && tryRpc.data) {
-    // RPC devuelve jsonb { id, email, soft_coins }
-    return { user: tryRpc.data, created: undefined };
-  }
+  try { await sb.rpc('ensure_user', { p_email: clean }); } catch {}
 
-  // Intento 2: fallback tabla users
   const { data: found, error: e1 } = await sb
     .from('users')
     .select('id,email,soft_coins')
-    .eq('email', email)
+    .eq('email', clean)
     .maybeSingle();
-
   if (e1 && e1.code !== 'PGRST116') throw e1;
   if (found) return { user: found, created: false };
 
   const { data, error } = await sb
     .from('users')
-    .insert({ email, soft_coins: 0 })
+    .insert({ email: clean, soft_coins: 0 })
     .select('id,email,soft_coins')
     .single();
-
   if (error) throw error;
   return { user: data, created: true };
 }
@@ -79,7 +69,7 @@ export async function getUserState({ userId, email }) {
   if (!sb) throw new Error('Supabase no configurado.');
   let q = sb.from('users').select('id,email,soft_coins').limit(1);
   if (userId) q = q.eq('id', userId);
-  else q = q.eq('email', email);
+  else q = q.eq('email', (email || '').trim().toLowerCase());
   const { data, error } = await q.maybeSingle();
   if (error) throw error;
   return data
@@ -87,31 +77,43 @@ export async function getUserState({ userId, email }) {
     : null;
 }
 
-/* ───────────────────── Ads RPC ─────────────────────
-   Back-end esperado (según tus definiciones actuales):
-   - ads_request_token(p_email text) returns jsonb -> { token, expires }  // SECURITY DEFINER + GRANT EXECUTE TO anon
-   - ads_verify_token(p_email text, p_token text) returns jsonb -> { ok:bool, coins_added?:int, error?:text }
-*/
+/* ───────────────────── Ads RPC ───────────────────── */
+function normalizeRpcOne(rowOrArray) {
+  if (Array.isArray(rowOrArray)) return rowOrArray[0] ?? null;
+  return rowOrArray ?? null;
+}
+
 export async function adsRequestToken(email) {
   const sb = getClient();
   if (!sb) throw new Error('Supabase no configurado.');
   const { data, error } = await sb.rpc('ads_request_token', { p_email: email });
   if (error) throw error;
-  return data; // { token, expires } (jsonb)
+  return normalizeRpcOne(data);
 }
 
 export async function adsVerifyToken(email, token) {
   const sb = getClient();
   if (!sb) throw new Error('Supabase no configurado.');
-  const { data, error } = await sb.rpc('ads_verify_token', {
+
+  // 1) Preferimos la versión de 3 parámetros (desambiguamos el overload)
+  const try3 = await sb.rpc('ads_verify_token', {
+    p_email: email,
+    p_token: token,      // string; en el BE puede ser TEXT
+    p_ip: 'web',         // forzamos firma (p_email text, p_token text, p_ip text)
+  });
+
+  if (!try3.error) return normalizeRpcOne(try3.data);
+
+  // 2) Fallback: versión de 2 parámetros (uuid/text)
+  const try2 = await sb.rpc('ads_verify_token', {
     p_email: email,
     p_token: token,
   });
-  if (error) throw error;
-  return data; // { ok, coins_added?, error? } (jsonb)
+  if (try2.error) throw try2.error;
+  return normalizeRpcOne(try2.data);
 }
 
-/* ───────────────────── Utilidades (opcional) ───────────────────── */
+/* ───────────────────── Utilidades ───────────────────── */
 export async function pingSupabase() {
   const sb = getClient();
   if (!sb) throw new Error('Supabase no configurado.');
