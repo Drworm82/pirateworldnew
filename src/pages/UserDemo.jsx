@@ -1,54 +1,98 @@
 // src/pages/UserDemo.jsx
 import { useState } from "react";
-import { isConfigured, ensureUser } from "../lib/supaApi";
+import api from "../lib/supaApi"; // <- usar default import
 
 export default function UserDemo() {
-  const [email, setEmail] = useState("");
-  const [out, setOut] = useState(null);
+  const [email, setEmail] = useState("worm_jim@hotmail.com");
+  const [out, setOut] = useState("");
   const [loading, setLoading] = useState(false);
 
-  if (!isConfigured()) {
-    return (
-      <div className="card">
-        <h2>Demo usuario</h2>
-        <p className="warn">⚠️ Supabase no está configurado.</p>
-        <p className="muted">Ve a <a href="#/setup">Configuración</a> para guardar URL y Key.</p>
-      </div>
-    );
-  }
+  const configured = api.isConfigured?.();
 
-  async function run() {
-    setLoading(true);
-    setOut(null);
+  async function handleEnsure() {
     try {
-      const res = await ensureUser(email.trim());
-      setOut({ ok: true, data: res.user });
-    } catch (err) {
-      setOut({ ok: false, error: String(err?.message || err) });
+      setLoading(true);
+      setOut("Creando/cargando usuario...");
+      const { user } = await api.ensureUser(email);
+      setOut(
+        `OK -> id=${user.id} · email=${user.email} · soft_coins=${user.soft_coins}`
+      );
+    } catch (e) {
+      setOut("Error: " + (e?.message || String(e)));
     } finally {
       setLoading(false);
     }
   }
 
+  function quickSetEnv() {
+    const url = prompt("VITE_SUPABASE_URL:");
+    const key = prompt("VITE_SUPABASE_ANON_KEY:");
+    if (url && key) {
+      api.saveRuntimeEnv?.(url, key);
+      alert("Guardado. Recarga la página y vuelve a intentar.");
+    }
+  }
+
   return (
-    <div className="card">
-      <h2>Demo: ensureUser(email)</h2>
-      <div className="form">
-        <label>
-          Email del jugador
-          <input type="email" placeholder="pirata@mar.com" value={email} onChange={(e)=>setEmail(e.target.value)} />
-        </label>
-        <button className="btn" onClick={run} disabled={loading || !email}>
-          {loading ? "Ejecutando..." : "Crear / Cargar"}
+    <main style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
+      <h2>Demo de Usuario</h2>
+      <p style={{ color: configured ? "green" : "crimson" }}>
+        Supabase: {configured ? "Configurado" : "NO configurado"}
+      </p>
+
+      {!configured && (
+        <button onClick={quickSetEnv} style={btn}>
+          Configurar Supabase (runtime)
         </button>
+      )}
+
+      <div style={{ marginTop: 12 }}>
+        <label>
+          Email:&nbsp;
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={input}
+            placeholder="tucorreo@ejemplo.com"
+          />
+        </label>
       </div>
 
-      {out && (
-        <pre className="pre">
-{JSON.stringify(out, null, 2)}
-        </pre>
-      )}
-      <p className="muted">Usa el RPC <code>ensure_user</code> del backend.</p>
-    </div>
+      <button
+        onClick={handleEnsure}
+        style={{ ...btn, marginTop: 12 }}
+        disabled={loading}
+      >
+        {loading ? "Procesando..." : "Crear/Cargar usuario"}
+      </button>
+
+      <pre style={pre}>{out}</pre>
+    </main>
   );
 }
+
+const btn = {
+  padding: "10px 14px",
+  borderRadius: 8,
+  border: "1px solid #0b132b",
+  background: "#0b132b",
+  color: "white",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const input = {
+  padding: "8px 10px",
+  borderRadius: 6,
+  border: "1px solid #bbb",
+  minWidth: 280,
+};
+
+const pre = {
+  background: "#f5f5f5",
+  border: "1px solid #eee",
+  borderRadius: 8,
+  padding: 12,
+  marginTop: 12,
+  whiteSpace: "pre-wrap",
+};
