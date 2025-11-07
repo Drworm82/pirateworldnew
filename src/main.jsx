@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import Splash from "./Splash";
 import SetupSupabase from "./pages/SetupSupabase.jsx";
 import UserDemo from "./pages/UserDemo.jsx";
+import Eco01Runner from "./pages/Eco01Runner.jsx"; // <-- NUEVO: ruta ECO-01
 import "./registerSW";
 
 function useHashRoute() {
@@ -54,6 +55,7 @@ function App() {
         <a href="#/" className={route==="/" ? "active":""}>Inicio</a>
         <a href="#/setup" className={route==="/setup" ? "active":""}>Setup Supabase</a>
         <a href="#/user" className={route==="/user" ? "active":""}>Demo usuario</a>
+        <a href="#/eco01" className={route==="/eco01" ? "active":""}>ECO-01</a> {/* <-- NUEVO */}
       </nav>
     );
   }
@@ -89,6 +91,7 @@ function App() {
           {route === "/" && <Home />}
           {route === "/setup" && <SetupSupabase />}
           {route === "/user" && <UserDemo />}
+          {route === "/eco01" && <Eco01Runner />} {/* <-- NUEVO */}
         </div>
       </main>
     </>

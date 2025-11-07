@@ -1,12 +1,6 @@
-// Utilidades de Economía · ECO-01 v0.1.2
-// Requisitos de BD asumidos:
-//  - Tabla users(id uuid pk, email text unique)
-//  - Tabla ledger(id bigserial, user_id uuid, occurred_at timestamptz, kind text, amount_usd numeric, note text)
-//  - Tabla daily_revenue(day date, revenue_usd numeric [, note text] [, user_id uuid opcional])
-//  - Tabla daily_payouts(day date, user_id uuid, requested_usd numeric, scaled_usd numeric, paid_usd numeric, global_scale numeric, daily_cap_applied bool, weekly_cap_applied bool)
-//  - RPC/Función: cron_daily_close_v2()  (sin argumentos)
-// NOTA: Usa getClient() de src/lib/supaApi.js (no duplicar cliente).
-
+// src/lib/economyApi.js
+// Utilidades de Economía · ECO-01
+// Requisitos de BD: ver comentarios al final.
 import { getClient } from "./supaApi";
 
 const ECO_USERS = [
@@ -18,12 +12,11 @@ const ECO_USERS = [
 ];
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  return new Date().toISOString().slice(0, 10);
 }
 
 async function ensureUsers(emails = ECO_USERS) {
   const supabase = getClient();
-  // Upsert por email requiere unique constraint en users.email (asumido)
   const rows = emails.map((email) => ({ email }));
   const { error } = await supabase.from("users").upsert(rows, { onConflict: "email", ignoreDuplicates: false });
   if (error) throw error;
@@ -33,15 +26,12 @@ async function ensureUsers(emails = ECO_USERS) {
 
   const map = new Map();
   (data || []).forEach((u) => map.set(u.email, u.id));
-  if (map.size !== emails.length) {
-    throw new Error("No pude mapear todos los usuarios por email.");
-  }
+  if (map.size !== emails.length) throw new Error("No pude mapear todos los usuarios por email.");
   return map;
 }
 
 async function insertLedgerParcels(emailToId) {
   const supabase = getClient();
-  // Distribución: 20 requests total (0.02 c/u)
   const dist = [
     { email: "worm_jim@hotmail.com", n: 6 },
     { email: "pirata1@example.com", n: 4 },
@@ -49,22 +39,14 @@ async function insertLedgerParcels(emailToId) {
     { email: "pirata3@example.com", n: 3 },
     { email: "pirata4@example.com", n: 3 },
   ];
-
   const now = new Date().toISOString();
   const rows = [];
   for (const d of dist) {
     const user_id = emailToId.get(d.email);
     for (let i = 0; i < d.n; i++) {
-      rows.push({
-        user_id,
-        occurred_at: now,
-        kind: "request_usd",
-        amount_usd: 0.02,
-        note: "ECO-01 seed",
-      });
+      rows.push({ user_id, occurred_at: now, kind: "request_usd", amount_usd: 0.02, note: "ECO-01 seed" });
     }
   }
-
   const { error } = await supabase.from("ledger").insert(rows);
   if (error) throw error;
 }
@@ -72,66 +54,37 @@ async function insertLedgerParcels(emailToId) {
 async function upsertDailyRevenueDeleteInsert(revenueUsd = 20.0) {
   const supabase = getClient();
   const day = todayISO();
+  await supabase.from("daily_revenue").delete().eq("day", day);
 
-  // 1) Delete del día (evita depender de ON CONFLICT/índices únicos)
-  {
-    const { error } = await supabase.from("daily_revenue").delete().eq("day", day);
-    if (error && error.code !== "PGRST116") {
-      // PGRST116: No rows deleted, está bien.
-      // Continuamos ante cualquier otro error a menos que sea hard.
-    }
-  }
-
-  // 2) Insert mínimo (day, revenue_usd). Si tu tabla exige user_id, intentamos con "system@pirate.world".
-  {
-    const insertBase = { day, revenue_usd: revenueUsd };
-    let { error } = await supabase.from("daily_revenue").insert(insertBase);
-    if (error) {
-      // Reintento con user_id si la tabla lo exige
-      // Aseguramos usuario "system@pirate.world"
-      const { error: e1 } = await supabase
-        .from("users")
-        .upsert([{ email: "system@pirate.world" }], { onConflict: "email", ignoreDuplicates: false });
-      if (e1) throw e1;
-
-      const { data: sys, error: e2 } = await supabase
-        .from("users")
-        .select("id")
-        .eq("email", "system@pirate.world")
-        .maybeSingle();
-      if (e2 || !sys) throw e2 || new Error("No se pudo encontrar/crear el usuario system@pirate.world");
-
-      const withUser = { ...insertBase, user_id: sys.id };
-      const retry = await supabase.from("daily_revenue").insert(withUser);
-      if (retry.error) throw retry.error;
-    }
+  const base = { day, revenue_usd: revenueUsd };
+  let { error } = await supabase.from("daily_revenue").insert(base);
+  if (error) {
+    await supabase.from("users").upsert([{ email: "system@pirate.world" }], { onConflict: "email", ignoreDuplicates: false });
+    const { data: sys, error: e2 } = await supabase.from("users").select("id").eq("email", "system@pirate.world").maybeSingle();
+    if (e2 || !sys) throw e2 || new Error("No se pudo crear/obtener system@pirate.world");
+    const retry = await supabase.from("daily_revenue").insert({ ...base, user_id: sys.id });
+    if (retry.error) throw retry.error;
   }
 }
 
 async function runCron() {
   const supabase = getClient();
-  // PostgREST/RPC (función sin args)
-  const { error } = await supabase.rpc("cron_daily_close_v2", {});
+  const { error } = await supabase.rpc("cron_daily_close_v2", {}); // función sin args
   if (error) throw error;
 }
 
 export async function eco01SeedAndClose({ revenueUsd = 20.0 } = {}) {
-  // 1) Asegurar usuarios
   const emailToId = await ensureUsers(ECO_USERS);
-  // 2) Revenue del día
   await upsertDailyRevenueDeleteInsert(revenueUsd);
-  // 3) 20 requests de 0.02
   await insertLedgerParcels(emailToId);
-  // 4) Ejecutar cierre diario
   await runCron();
-  // 5) Resultado y verificaciones
+
   const [todayRows, weeklyByUser, rev] = await Promise.all([
     getDailyPayoutsToday(),
     getWeeklyPaidByUser(),
     getRevenueToday(),
   ]);
 
-  // Mapear email para UI
   const ids = todayRows.map((r) => r.user_id);
   const idToEmail = await getUsersByIds(ids);
 
@@ -150,15 +103,7 @@ export async function eco01SeedAndClose({ revenueUsd = 20.0 } = {}) {
   const cap95 = revenue * 0.95;
   const totalPaid = merged.reduce((acc, r) => acc + r.paid, 0);
 
-  return {
-    rows: merged,
-    checks: {
-      revenue,
-      cap95,
-      totalPaid,
-      ok95: totalPaid <= cap95,
-    },
-  };
+  return { rows: merged, checks: { revenue, cap95, totalPaid, ok95: totalPaid <= cap95 } };
 }
 
 export async function getDailyPayoutsToday() {
@@ -185,11 +130,7 @@ export async function getUsersByIds(ids) {
 export async function getRevenueToday() {
   const supabase = getClient();
   const day = todayISO();
-  const { data, error } = await supabase
-    .from("daily_revenue")
-    .select("day, revenue_usd")
-    .eq("day", day)
-    .maybeSingle();
+  const { data, error } = await supabase.from("daily_revenue").select("day, revenue_usd").eq("day", day).maybeSingle();
   if (error) throw error;
   return data ?? null;
 }
@@ -207,12 +148,24 @@ export async function getWeeklyPaidByUser() {
     .select("user_id, paid_usd, day")
     .gte("day", fromIso)
     .lte("day", toIso);
-
   if (error) throw error;
 
   const sum = new Map();
-  (data || []).forEach((row) => {
-    sum.set(row.user_id, (sum.get(row.user_id) || 0) + Number(row.paid_usd || 0));
-  });
+  (data || []).forEach((row) => sum.set(row.user_id, (sum.get(row.user_id) || 0) + Number(row.paid_usd || 0)));
   return sum;
 }
+
+/*
+Supabase asumido:
+- Tabla users: id (uuid pk), email (text unique)
+- Tabla ledger: user_id (uuid), occurred_at (timestamptz), kind (text), amount_usd (numeric), note (text)
+- Tabla daily_revenue: day (date), revenue_usd (numeric) [, user_id (uuid, opcional)]
+- Tabla daily_payouts: day (date), user_id (uuid), requested_usd (numeric), scaled_usd (numeric), paid_usd (numeric),
+                      global_scale (numeric), daily_cap_applied (bool), weekly_cap_applied (bool)
+- RPC: cron_daily_close_v2() sin argumentos
+- Cliente: getClient() desde src/lib/supaApi.js
+*/
+git checkout feature-economy
+git add src/main.jsx src/pages/Eco01Runner.jsx src/lib/economyApi.js
+git commit -m "feat(economy): ECO-01 runner + seed+close y validaciones (95%, $2 día, $50 semana)"
+git push --set-upstream origin feature-economy

@@ -1,6 +1,6 @@
-// UI de verificación para ECO-01 v0.1.2
-// Renderiza un botón para sembrar + cerrar, y una tabla con validaciones.
-// Ruta sugerida: /#/eco01
+// src/pages/Eco01Runner.jsx
+// UI de verificación para ECO-01: siembra + cierra día y muestra tabla de pagos.
+// Ruta: /#/eco01
 
 import { useState } from "react";
 import { eco01SeedAndClose } from "../lib/economyApi";
@@ -26,7 +26,7 @@ export default function Eco01Runner() {
   }
 
   return (
-    <main className="p-6 max-w-5xl mx-auto">
+    <section>
       <header className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">ECO-01 · Runner</h1>
         <button
@@ -103,7 +103,7 @@ export default function Eco01Runner() {
           </table>
         </div>
       </section>
-    </main>
+    </section>
   );
 }
 
