@@ -18,10 +18,15 @@ function todayISO() {
 async function ensureUsers(emails = ECO_USERS) {
   const supabase = getClient();
   const rows = emails.map((email) => ({ email }));
-  const { error } = await supabase.from("users").upsert(rows, { onConflict: "email", ignoreDuplicates: false });
+  const { error } = await supabase
+    .from("users")
+    .upsert(rows, { onConflict: "email", ignoreDuplicates: false });
   if (error) throw error;
 
-  const { data, error: e2 } = await supabase.from("users").select("id,email").in("email", emails);
+  const { data, error: e2 } = await supabase
+    .from("users")
+    .select("id,email")
+    .in("email", emails);
   if (e2) throw e2;
 
   const map = new Map();
@@ -44,7 +49,13 @@ async function insertLedgerParcels(emailToId) {
   for (const d of dist) {
     const user_id = emailToId.get(d.email);
     for (let i = 0; i < d.n; i++) {
-      rows.push({ user_id, occurred_at: now, kind: "request_usd", amount_usd: 0.02, note: "ECO-01 seed" });
+      rows.push({
+        user_id,
+        occurred_at: now,
+        kind: "request_usd",
+        amount_usd: 0.02,
+        note: "ECO-01 seed",
+      });
     }
   }
   const { error } = await supabase.from("ledger").insert(rows);
@@ -54,14 +65,25 @@ async function insertLedgerParcels(emailToId) {
 async function upsertDailyRevenueDeleteInsert(revenueUsd = 20.0) {
   const supabase = getClient();
   const day = todayISO();
+
+  // Borrado idempotente del día
   await supabase.from("daily_revenue").delete().eq("day", day);
 
+  // Insert mínimo (si la tabla exige user_id, reintenta con system@pirate.world)
   const base = { day, revenue_usd: revenueUsd };
   let { error } = await supabase.from("daily_revenue").insert(base);
   if (error) {
-    await supabase.from("users").upsert([{ email: "system@pirate.world" }], { onConflict: "email", ignoreDuplicates: false });
-    const { data: sys, error: e2 } = await supabase.from("users").select("id").eq("email", "system@pirate.world").maybeSingle();
+    await supabase
+      .from("users")
+      .upsert([{ email: "system@pirate.world" }], { onConflict: "email", ignoreDuplicates: false });
+
+    const { data: sys, error: e2 } = await supabase
+      .from("users")
+      .select("id")
+      .eq("email", "system@pirate.world")
+      .maybeSingle();
     if (e2 || !sys) throw e2 || new Error("No se pudo crear/obtener system@pirate.world");
+
     const retry = await supabase.from("daily_revenue").insert({ ...base, user_id: sys.id });
     if (retry.error) throw retry.error;
   }
@@ -103,7 +125,10 @@ export async function eco01SeedAndClose({ revenueUsd = 20.0 } = {}) {
   const cap95 = revenue * 0.95;
   const totalPaid = merged.reduce((acc, r) => acc + r.paid, 0);
 
-  return { rows: merged, checks: { revenue, cap95, totalPaid, ok95: totalPaid <= cap95 } };
+  return {
+    rows: merged,
+    checks: { revenue, cap95, totalPaid, ok95: totalPaid <= cap95 },
+  };
 }
 
 export async function getDailyPayoutsToday() {
@@ -111,7 +136,9 @@ export async function getDailyPayoutsToday() {
   const day = todayISO();
   const { data, error } = await supabase
     .from("daily_payouts")
-    .select("user_id, day, requested_usd, scaled_usd, paid_usd, global_scale, daily_cap_applied, weekly_cap_applied")
+    .select(
+      "user_id, day, requested_usd, scaled_usd, paid_usd, global_scale, daily_cap_applied, weekly_cap_applied"
+    )
     .eq("day", day);
   if (error) throw error;
   return data ?? [];
@@ -130,7 +157,11 @@ export async function getUsersByIds(ids) {
 export async function getRevenueToday() {
   const supabase = getClient();
   const day = todayISO();
-  const { data, error } = await supabase.from("daily_revenue").select("day, revenue_usd").eq("day", day).maybeSingle();
+  const { data, error } = await supabase
+    .from("daily_revenue")
+    .select("day, revenue_usd")
+    .eq("day", day)
+    .maybeSingle();
   if (error) throw error;
   return data ?? null;
 }
@@ -151,7 +182,9 @@ export async function getWeeklyPaidByUser() {
   if (error) throw error;
 
   const sum = new Map();
-  (data || []).forEach((row) => sum.set(row.user_id, (sum.get(row.user_id) || 0) + Number(row.paid_usd || 0)));
+  (data || []).forEach((row) => {
+    sum.set(row.user_id, (sum.get(row.user_id) || 0) + Number(row.paid_usd || 0));
+  });
   return sum;
 }
 
@@ -165,7 +198,3 @@ Supabase asumido:
 - RPC: cron_daily_close_v2() sin argumentos
 - Cliente: getClient() desde src/lib/supaApi.js
 */
-git checkout feature-economy
-git add src/main.jsx src/pages/Eco01Runner.jsx src/lib/economyApi.js
-git commit -m "feat(economy): ECO-01 runner + seed+close y validaciones (95%, $2 día, $50 semana)"
-git push --set-upstream origin feature-economy
