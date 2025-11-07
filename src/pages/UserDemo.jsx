@@ -1,18 +1,22 @@
 // src/pages/UserDemo.jsx
 import { useState } from "react";
-import api from "../lib/supaApi"; // <- usar default import
+import * as apiNS from "../lib/supaApi"; // <- recoge named exports; si hay default también lo tendremos
+
+// compat: si existe default, úsalo; si no, usa los named
+const api = apiNS.default ?? apiNS;
 
 export default function UserDemo() {
   const [email, setEmail] = useState("worm_jim@hotmail.com");
   const [out, setOut] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const configured = api.isConfigured?.();
+  const configured = api.isConfigured ? api.isConfigured() : false;
 
   async function handleEnsure() {
     try {
       setLoading(true);
       setOut("Creando/cargando usuario...");
+      if (!api.ensureUser) throw new Error("ensureUser no está exportado por supaApi.js");
       const { user } = await api.ensureUser(email);
       setOut(
         `OK -> id=${user.id} · email=${user.email} · soft_coins=${user.soft_coins}`
@@ -28,7 +32,11 @@ export default function UserDemo() {
     const url = prompt("VITE_SUPABASE_URL:");
     const key = prompt("VITE_SUPABASE_ANON_KEY:");
     if (url && key) {
-      api.saveRuntimeEnv?.(url, key);
+      if (!api.saveRuntimeEnv) {
+        alert("saveRuntimeEnv no está exportado por supaApi.js en esta rama.");
+        return;
+      }
+      api.saveRuntimeEnv(url, key);
       alert("Guardado. Recarga la página y vuelve a intentar.");
     }
   }
