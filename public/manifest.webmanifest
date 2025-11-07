@@ -2,40 +2,36 @@
   "name": "PirateWorld",
   "short_name": "PirateWorld",
   "description": "Juego geolocalizado pirata (demo web)",
-  "start_url": "/?v=2025-11-05-04",
+  "start_url": "/#/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#0b132b",
+  "orientation": "portrait",
   "theme_color": "#0b132b",
-  "categories": ["games", "entertainment"],
+  "background_color": "#0b132b",
   "icons": [
     {
-      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABl5y02AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAB3RJTUUH5QQKFS4p5bqK8AAAABl0RVh0Q29tbWVudABDcm9wIGhvbGRlciBwbGFjZWhvbGRlcgAAABZ0RVh0Q3JlYXRpb24gVGltZQAwNS8xMS8yNT6g9zYAAABNSURBVHja7cEBDQAAAMKg909tDjegAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHgG8sQAAUpqF8kAAAAASUVORK5CYII=",
+      "src": "/icons/pw-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQgAAAEICAYAAABa3z1QAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAB3RJTUUH5QQKFS5bQ8nqKAAAABl0RVh0Q29tbWVudABQbGFjZWhvbGRlciBQTkcgNTEyAAABGklEQVR42u3BAQ0AAADCoPdPbQ4FoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADgBK2QAAfYqf0kAAAAASUVORK5CYII=",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABl5y02AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAB3RJTUUH5QQKFS8VYbS1lQAAABl0RVh0Q29tbWVudABNYXNrYWJsZSBwbGFjZWhvbGRlcgAAABZ0RVh0Q3JlYXRpb24gVGltZQAwNS8xMS8yNT6g9zYAAABNSURBVHja7cEBDQAAAMKg909tDjegAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHgG8sQAAUpqF8kAAAAASUVORK5CYII=",
+      "src": "/icons/pw-192-maskable.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQgAAAEICAYAAABa3z1QAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAB3RJTUUH5QQKFTAjm8Y3XAAAABl0RVh0Q29tbWVudABNYXNrYWJsZSBQTkcgNTEyAAABGklEQVR42u3BAQ0AAADCoPdPbQ4FoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADgBK2QAAfYqf0kAAAAASUVORK5CYII=",
+      "src": "/icons/pw-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/pw-512-maskable.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     }
-  ],
-  "shortcuts": [
-    { "name": "Mapa", "short_name": "Mapa", "url": "/?tab=map" },
-    { "name": "Inventario", "short_name": "Inventario", "url": "/?tab=inv" }
   ]
 }
