@@ -1,7 +1,7 @@
 {
   "name": "PirateWorld",
   "short_name": "PirateWorld",
-  "description": "Conquista mares, gana doblones y reclama parcelas en PirateWorld.",
+  "description": "Juego de exploración y recompensas pirata — versión móvil PWA",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -1,21 +1,30 @@
-import { registerSW } from "virtual:pwa-register";
+// src/registerSW.js
+// Registro del Service Worker con UX básica de actualización.
 
-/**
- * Expone un callback global para cuando haya una actualización lista.
- * main.jsx escucha con: window.__onSWUpdateReady(cb)
- */
-let updateCb = null;
-window.__onSWUpdateReady = (cb) => { updateCb = cb; };
+if ('serviceWorker' in navigator) {
+  // En VitePWA con injectRegister:'auto' esto suele no ser necesario,
+  // pero mantenerlo no hace daño y ayuda en algunos entornos.
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('/sw.js');
+      // Auto-update cada vez que haya una nueva build
+      setInterval(() => {
+        reg.update().catch(() => {});
+      }, 1000 * 60 * 30); // cada 30 min
 
-// Registro del SW con modo auto-update
-registerSW({
-  immediate: true,
-  onNeedRefresh() {
-    // Hay un SW nuevo esperando → avisamos a la UI
-    if (typeof updateCb === "function") updateCb();
-  },
-  onOfflineReady() {
-    // Primer cache listo para offline
-    console.log("PirateWorld PWA offline ready");
-  }
-});
+      // Mensaje cuando hay actualización lista
+      reg.addEventListener('updatefound', () => {
+        const newSW = reg.installing;
+        if (!newSW) return;
+        newSW.addEventListener('statechange', () => {
+          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+            // Hay una versión nueva lista. Puedes mostrar un toast aquí si quieres.
+            console.log('Nueva versión disponible. Recarga para actualizar.');
+          }
+        });
+      });
+    } catch (e) {
+      console.warn('SW register failed', e);
+    }
+  });
+}

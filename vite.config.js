@@ -1,58 +1,37 @@
 // vite.config.js
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import { VitePWA } from 'vite-plugin-pwa'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
+
+// Nota importante:
+// - Usamos manifest: false para respetar el archivo /public/manifest.webmanifest que ya creaste.
+// - El plugin generará/inyectará el Service Worker, y auto-registrará en producción.
 
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      injectRegister: 'auto',         // inyecta el register (no necesitas tocar index.html)
+      manifest: false,                // respeta /public/manifest.webmanifest
+      includeAssets: [
+        'favicon.ico',
+        'favicon.svg',
+        'icons/pw-192.png',
+        'icons/pw-192-maskable.png',
+        'icons/pw-512.png',
+        'icons/pw-512-maskable.png'
+      ],
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        navigateFallbackDenylist: [/^\/api\//]
+        navigateFallback: '/index.html',
       },
-      manifest: {
-        name: 'PirateWorld',
-        short_name: 'PirateWorld',
-        description: 'Juego geolocalizado pirata (demo web)',
-        start_url: '/#/',
-        scope: '/',
-        display: 'standalone',
-        orientation: 'portrait',
-        theme_color: '#0b132b',
-        background_color: '#0b132b',
-        icons: [
-          {
-            src: '/icons/pw-192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: '/icons/pw-192-maskable.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'maskable'
-          },
-          {
-            src: '/icons/pw-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: '/icons/pw-512-maskable.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable'
-          }
-        ]
-      }
+      // Si quieres poder ver el SW en "npm run dev" para pruebas locales:
+      // devOptions: { enabled: true }
     })
   ],
-  build: {
-    sourcemap: false
+  server: {
+    port: 5173,
+    host: true,
   }
-})
+});
