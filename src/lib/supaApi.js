@@ -1,116 +1,82 @@
 // src/lib/supaApi.js
 import { createClient } from '@supabase/supabase-js';
 
-/* ── ENV runtime ── */
-function readEnv() {
-  const url =
-    import.meta.env.VITE_SUPABASE_URL ||
-    localStorage.getItem('VITE_SUPABASE_URL') ||
-    (window.__PW_SUPA_URL ?? '');
-  const key =
-    import.meta.env.VITE_SUPABASE_ANON_KEY ||
-    localStorage.getItem('VITE_SUPABASE_ANON_KEY') ||
-    (window.__PW_SUPA_KEY ?? '');
-  return { url: (url || '').trim(), key: (key || '').trim() };
+// —— dónde guardamos URL y KEY al hacer setup en runtime ——
+const URL_KEY = 'VITE_SUPABASE_URL';
+const KEY_KEY = 'VITE_SUPABASE_ANON_KEY';
+
+// Guardar credenciales en localStorage desde /#/setup
+export function saveRuntimeEnv(url, anonKey) {
+  if (url) localStorage.setItem(URL_KEY, url);
+  if (anonKey) localStorage.setItem(KEY_KEY, anonKey);
 }
 
-let _supabase = null;
-
+// Comprobar si ya hay URL/KEY
 export function isConfigured() {
-  const { url, key } = readEnv();
-  return !!(url && key);
+  return Boolean(localStorage.getItem(URL_KEY) && localStorage.getItem(KEY_KEY));
 }
 
-export function saveRuntimeEnv(url, key) {
-  localStorage.setItem('VITE_SUPABASE_URL', url);
-  localStorage.setItem('VITE_SUPABASE_ANON_KEY', key);
+// Cliente singleton
+let _client = null;
+export function getSupa() {
+  if (_client) return _client;
+  const url = localStorage.getItem(URL_KEY);
+  const key = localStorage.getItem(KEY_KEY);
+  if (!url || !key) return null; // deja que el caller maneje “no configurado”
+  _client = createClient(url, key);
+  return _client;
 }
+// Alias para compatibilidad con código anterior
+export const getClient = getSupa;
 
-export function getClient() {
-  if (_supabase) return _supabase;
-  const { url, key } = readEnv();
-  if (!url || !key) return null;
-  _supabase = createClient(url, key, {
-    auth: { persistSession: false },
-    global: { fetch: window.fetch.bind(window) },
-  });
-  return _supabase;
-}
-
-/* ── Usuarios ── */
-export async function ensureUser(email) {
-  const sb = getClient();
-  if (!sb) throw new Error('Supabase no configurado.');
-
-  // 1) RPC (si existe en tu BE)
-  const rpc = await sb.rpc('ensure_user', { p_email: email });
-  if (!rpc.error && rpc.data) {
-    return { user: rpc.data, created: undefined };
+// 🔐 Sesión anónima opcional (útil para demos con RLS)
+export async function ensureAnonSession() {
+  const sb = getSupa();
+  if (!sb) return { ok: false, reason: 'not_configured' };
+  const { data: s } = await sb.auth.getSession();
+  if (!s?.session) {
+    // requiere “Allow anonymous sign-ins” activado en Supabase
+    const { error } = await sb.auth.signInAnonymously();
+    if (error) return { ok: false, reason: error.message };
   }
-
-  // 2) Fallback directo a tabla
-  const { data: found, error: e1 } = await sb
-    .from('users')
-    .select('id,email,soft_coins')
-    .eq('email', email)
-    .maybeSingle();
-  if (e1 && e1.code !== 'PGRST116') throw e1;
-  if (found) return { user: found, created: false };
-
-  const { data, error } = await sb
-    .from('users')
-    .insert({ email, soft_coins: 0 })
-    .select('id,email,soft_coins')
-    .single();
-  if (error) throw error;
-  return { user: data, created: true };
-}
-
-export async function getUserState({ userId, email }) {
-  const sb = getClient();
-  if (!sb) throw new Error('Supabase no configurado.');
-  let q = sb.from('users').select('id,email,soft_coins').limit(1);
-  q = userId ? q.eq('id', userId) : q.eq('email', email);
-  const { data, error } = await q.maybeSingle();
-  if (error) throw error;
-  return data
-    ? { user_id: data.id, email: data.email, soft_coins: data.soft_coins }
-    : null;
-}
-
-/* ── Ads RPC ── */
-export async function adsRequestToken(email) {
-  const sb = getClient();
-  if (!sb) throw new Error('Supabase no configurado.');
-  const { data, error } = await sb.rpc('ads_request_token', { p_email: email });
-  if (error) throw error;
-  return data; // { token, expires }
-}
-
-export async function adsVerifyToken(email, token) {
-  const sb = getClient();
-  if (!sb) throw new Error('Supabase no configurado.');
-  const { data, error } = await sb.rpc('ads_verify_token', { p_email: email, p_token: token });
-  if (error) throw error;
-  return data; // { ok, coins_added?, error? }
-}
-
-export async function pingSupabase() {
-  const sb = getClient();
-  if (!sb) throw new Error('Supabase no configurado.');
-  const { error } = await sb.from('users').select('id').limit(1);
-  if (error) throw error;
   return { ok: true };
 }
 
-/* default export con TODO, para que cualquier import funcione */
-export default {
-  isConfigured,
-  saveRuntimeEnv,
-  getClient,
-  ensureUser,
-  getUserState,
-  adsRequestToken,
-  adsVerifyToken,
-  pingSupabase,
-};
+/* =========================
+   Utilidades “parcels” para Index.jsx
+   ========================= */
+
+// Lee parcels (ajusta el nombre/columns si difiere en tu BD)
+export async function fetchParcels() {
+  const sb = getSupa();
+  if (!sb) return { data: [], error: new Error('Supabase no configurado') };
+  return await sb
+    .from('parcels')
+    .select('id, geohash, rarity, base_yield_per_hour, influence, owner_user_id, created_at')
+    .order('created_at', { ascending: false });
+}
+
+// Suscripción realtime (Postgres Changes)
+export async function subscribeParcels({ onInsert, onUpdate, onDelete } = {}) {
+  const sb = getSupa();
+  if (!sb) return null;
+  const channel = sb
+    .channel('realtime:parcels')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'parcels' }, (p) =>
+      onInsert && onInsert(p.new)
+    )
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'parcels' }, (p) =>
+      onUpdate && onUpdate(p.new)
+    )
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'parcels' }, (p) =>
+      onDelete && onDelete(p.old)
+    )
+    .subscribe();
+  return channel;
+}
+
+export async function unsubscribe(channel) {
+  const sb = getSupa();
+  if (!sb || !channel) return;
+  await sb.removeChannel(channel);
+}
