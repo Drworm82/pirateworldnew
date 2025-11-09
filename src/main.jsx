@@ -1,10 +1,15 @@
 // src/main.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+
+import "./index.css";               // <- estilos globales
+import "./registerSW";
+
 import Splash from "./Splash";
 import SetupSupabase from "./pages/SetupSupabase.jsx";
 import UserDemo from "./pages/UserDemo.jsx";
-import "./registerSW";
+import TilesDemo from "./pages/TilesDemo.jsx";
+import DebugEnv from "./pages/DebugEnv.jsx";   // <- NUEVO
 
 function useHashRoute() {
   const [route, setRoute] = useState(location.hash || "#/");
@@ -20,40 +25,57 @@ function App() {
   const route = useHashRoute();
   const [showSplash, setShowSplash] = useState(true);
 
-  // --- PWA Install UX ---
+  // --- PWA install UX ---
   const deferred = useRef(null);
   const [canInstall, setCanInstall] = useState(false);
   const [installed, setInstalled] = useState(
     window.matchMedia?.("(display-mode: standalone)")?.matches ||
-    window.navigator.standalone === true ||
-    localStorage.getItem("pw_installed") === "1"
+      window.navigator.standalone === true ||
+      localStorage.getItem("pw_installed") === "1"
   );
   const isStandalone =
     window.matchMedia?.("(display-mode: standalone)")?.matches ||
     window.navigator.standalone === true;
 
   useEffect(() => {
-    const onBIP = (e) => { e.preventDefault(); deferred.current = e; setCanInstall(true); };
-    const onInstalled = () => { localStorage.setItem("pw_installed","1"); setInstalled(true); setCanInstall(false); };
+    const onBIP = (e) => {
+      e.preventDefault();
+      deferred.current = e;
+      setCanInstall(true);
+    };
+    const onInstalled = () => {
+      localStorage.setItem("pw_installed", "1");
+      setInstalled(true);
+      setCanInstall(false);
+    };
     window.addEventListener("beforeinstallprompt", onBIP);
     window.addEventListener("appinstalled", onInstalled);
-    return () => { window.removeEventListener("beforeinstallprompt", onBIP); window.removeEventListener("appinstalled", onInstalled); };
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onBIP);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
   }, []);
 
   async function handleInstall() {
-    if (!deferred.current) { alert("Si no aparece el diálogo: menú ⋮ → Instalar aplicación."); return; }
+    if (!deferred.current) {
+      alert("Si no aparece el diálogo: menú ⋮ → Instalar aplicación.");
+      return;
+    }
     deferred.current.prompt();
     const { outcome } = await deferred.current.userChoice;
-    deferred.current = null; setCanInstall(false);
+    deferred.current = null;
+    setCanInstall(false);
     if (outcome === "accepted") setInstalled(true);
   }
 
   function Nav() {
     return (
       <nav className="nav">
-        <a href="#/" className={route==="/" ? "active":""}>Inicio</a>
-        <a href="#/setup" className={route==="/setup" ? "active":""}>Setup Supabase</a>
-        <a href="#/user" className={route==="/user" ? "active":""}>Demo usuario</a>
+        <a href="#/" className={route === "/" ? "active" : ""}>Inicio</a>
+        <a href="#/setup" className={route === "/setup" ? "active" : ""}>Setup Supabase</a>
+        <a href="#/user" className={route === "/user" ? "active" : ""}>Demo usuario</a>
+        <a href="#/tiles" className={route === "/tiles" ? "active" : ""}>Demo parcelas</a>
+        {/* Ruta Debug sin enlace visible para no contaminar UI */}
       </nav>
     );
   }
@@ -73,6 +95,14 @@ function App() {
     );
   }
 
+  let page = null;
+  if (route === "/") page = <Home />;
+  else if (route === "/setup") page = <SetupSupabase />;
+  else if (route === "/user") page = <UserDemo />;
+  else if (route === "/tiles") page = <TilesDemo />;
+  else if (route === "/debug") page = <DebugEnv />;   // <- NUEVO
+  else page = <Home />;
+
   return (
     <>
       {showSplash && <Splash onDone={() => setShowSplash(false)} />}
@@ -86,9 +116,7 @@ function App() {
 
         <div className="container">
           <Nav />
-          {route === "/" && <Home />}
-          {route === "/setup" && <SetupSupabase />}
-          {route === "/user" && <UserDemo />}
+          {page}
         </div>
       </main>
     </>

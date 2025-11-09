@@ -1,3 +1,4 @@
+// vite.config.js
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
@@ -26,10 +27,14 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: "/index.html",
-        clientsClaim: true,   // SW nuevo toma control al instante
-        skipWaiting: true     // no espera cierre de pestañas
+        clientsClaim: true,
+        skipWaiting: true
       }
     })
   ],
-  server: { port: 5173 }
+  server: {
+    port: 5173,
+    hmr: { overlay: false } // ⬅️ desactiva el overlay rojo de errores en dev
+  },
+  preview: { port: 5173 }
 });

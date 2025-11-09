@@ -1,21 +1,17 @@
-import { registerSW } from "virtual:pwa-register";
+// src/registerSW.js
 
-/**
- * Expone un callback global para cuando haya una actualización lista.
- * main.jsx escucha con: window.__onSWUpdateReady(cb)
- */
-let updateCb = null;
-window.__onSWUpdateReady = (cb) => { updateCb = cb; };
-
-// Registro del SW con modo auto-update
-registerSW({
-  immediate: true,
-  onNeedRefresh() {
-    // Hay un SW nuevo esperando → avisamos a la UI
-    if (typeof updateCb === "function") updateCb();
-  },
-  onOfflineReady() {
-    // Primer cache listo para offline
-    console.log("PirateWorld PWA offline ready");
-  }
-});
+// Solo importa el PWA en producción
+if (import.meta.env.MODE === "production") {
+  import("virtual:pwa-register").then(({ registerSW }) => {
+    registerSW({
+      onNeedRefresh() {
+        console.log("🔁 Nueva versión disponible. Refresca la app.");
+      },
+      onOfflineReady() {
+        console.log("✅ Aplicación lista para modo offline.");
+      },
+    });
+  });
+} else {
+  console.log("🧩 PWA deshabilitado en desarrollo.");
+}

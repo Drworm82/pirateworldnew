@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:ads": "vite --open http://localhost:5173/#/user",
+    "dev:diag": "vite --open http://localhost:5173/#/diag",
+    "dev:ads:test": "vite --open http://localhost:5173/#/diag?autoTest=ads",
     "build": "vite build",
     "preview": "vite preview --host"
   },
@@ -15,6 +18,9 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.17",
     "vite": "^5.4.21",
     "vite-plugin-pwa": "^0.20.5"
   }
