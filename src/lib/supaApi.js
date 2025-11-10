@@ -1,46 +1,36 @@
 // src/lib/supaApi.js
-// Cliente
-import supabase from "./supaClient.js";
+import { supabase } from "./supaClient.js";
 
-/** Crea o carga el usuario de pruebas por email.
- * Devuelve: { user: {id, email} }
- */
+/** Crea o carga usuario por email */
 export async function ensureUser(email) {
   const e = String(email || "").trim().toLowerCase();
   if (!e) throw new Error("Email requerido");
 
-  let { data: urow, error } = await supabase
+  const { data: existing, error: errSel } = await supabase
     .from("users")
     .select("id, email")
     .eq("email", e)
     .maybeSingle();
+  if (errSel) throw errSel;
 
-  if (error) throw error;
+  if (existing) return { user: existing };
 
-  if (!urow) {
-    const { data: ins, error: errIns } = await supabase
-      .from("users")
-      .insert({ email: e })
-      .select("id, email")
-      .single();
-    if (errIns) throw errIns;
-    urow = ins;
-  }
+  const { data, error: errIns } = await supabase
+    .from("users")
+    .insert({ email: e })
+    .select("id, email")
+    .single();
+  if (errIns) throw errIns;
 
-  return { user: { id: urow.id, email: urow.email } };
+  return { user: data };
 }
 
-/** Lee saldo desde el backend (RPC wallet_get_balance)
- * getUserState({ email })  ó  getUserState({ userId })
- * → { user_id, email?, soft_coins }
- */
+/** Lee saldo actual sumando ledger */
 export async function getUserState({ email, userId } = {}) {
   let uid = userId;
-  let eml = email;
 
   if (!uid) {
     const e = String(email || "").trim().toLowerCase();
-    if (!e) throw new Error("Falta email o userId");
     const { data, error } = await supabase
       .from("users")
       .select("id, email")
@@ -49,42 +39,61 @@ export async function getUserState({ email, userId } = {}) {
     if (error) throw error;
     if (!data) throw new Error("Usuario no encontrado");
     uid = data.id;
-    eml = data.email;
   }
 
-  const { data: bal, error: errBal } = await supabase.rpc(
-    "wallet_get_balance",
-    { p_user_id: uid }
-  );
-  if (errBal) throw errBal;
+  const { data: rows, error: errL } = await supabase
+    .from("ledger")
+    .select("qty")
+    .eq("user_id", uid);
+  if (errL) throw errL;
 
-  return {
-    user_id: uid,
-    email: eml,
-    soft_coins: Number(bal ?? 0),
-  };
+  const soft_coins = (rows || []).reduce((s, r) => s + Number(r.qty || 0), 0);
+  return { user_id: uid, soft_coins };
 }
 
-/** Acredita +1 por anuncio (INSERT a ledger como 'credit', reason='ad'). */
-export async function creditAd(userId, note = "ad_view") {
+/** Ver anuncio (+1) */
+export async function creditAd(userId, reason = "ad_view") {
   const { error } = await supabase.from("ledger").insert({
     user_id: userId,
-    kind: "credit",     // << importante: 'credit' (el constraint no acepta 'ad')
+    kind: "credit",
     qty: 1,
-    reason: "ad",
-    note,
+    reason,
+    note: "ad reward",
   });
   if (error) throw error;
 
-  const { data: bal, error: errBal } = await supabase.rpc(
-    "wallet_get_balance",
-    { p_user_id: userId }
-  );
-  if (errBal) throw errBal;
-  return { ok: true, balance: Number(bal ?? 0) };
+  const fresh = await getUserState({ userId: userId });
+  return { ok: true, balance: fresh.soft_coins };
 }
 
-/** Tiles cercanos (usa tiles_near). */
+/** Recarga manual (+N) */
+export async function topUp(userId, amount = 10) {
+  const { error } = await supabase.from("ledger").insert({
+    user_id: userId,
+    kind: "credit",
+    qty: amount,
+    reason: "top_up",
+    note: "manual",
+  });
+  if (error) throw error;
+
+  const fresh = await getUserState({ userId: userId });
+  return { ok: true, balance: fresh.soft_coins };
+}
+
+/** Celdas virtuales cerca (RPC cells_near) */
+export async function cellsNear(lat, lng, radius_m = 600, limit = 120) {
+  const { data, error } = await supabase.rpc("cells_near", {
+    p_lat: lat,
+    p_lng: lng,
+    p_radius_m: radius_m,
+    p_limit: limit,
+  });
+  if (error) throw error;
+  return { list: data ?? [] };
+}
+
+/** (Fallback opcional) tiles_near si lo tienes en DB */
 export async function tilesNear(lat, lng, radius_m = 300) {
   const { data, error } = await supabase.rpc("tiles_near", {
     p_lat: lat,
@@ -95,23 +104,13 @@ export async function tilesNear(lat, lng, radius_m = 300) {
   return { list: data ?? [] };
 }
 
-/** Comprar tile (buy_tile_by_id). */
-export async function buyTileById(userId, tileId, lat, lng, radius_m = 300) {
-  const { data, error } = await supabase.rpc("buy_tile_by_id", {
+/** Comprar celda por qx/qy (si ya tienes buy_cell) */
+export async function buyCell(userId, qx, qy) {
+  const { data, error } = await supabase.rpc("buy_cell", {
     p_user_id: userId,
-    p_tile_id: tileId,
-    p_lat: lat,
-    p_lng: lng,
-    p_radius_m: radius_m,
+    p_qx: qx,
+    p_qy: qy,
   });
   if (error) return { ok: false, error: error.message };
   return data ?? { ok: false, error: "unknown_error" };
 }
-
-export default {
-  ensureUser,
-  getUserState,
-  creditAd,
-  tilesNear,
-  buyTileById,
-};
