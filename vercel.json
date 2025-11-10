@@ -1,8 +1,9 @@
 {
-  "cron": [
-    {
-      "path": "/api/cron-daily-close",
-      "schedule": "5 0 * * *"
-    }
+  "version": 2,
+  "builds": [
+    { "src": "vite.config.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
