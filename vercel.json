@@ -1,7 +1,8 @@
 {
-  "version": 2,
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/.*", "dest": "/index.html" }
+  "cron": [
+    {
+      "path": "/api/cron-daily-close",
+      "schedule": "5 0 * * *"
+    }
   ]
 }
