@@ -1,6 +1,6 @@
 // src/pages/SetupSupabase.jsx
 import React, { useEffect, useState } from "react";
-import supabase from "../lib/supaClient.js";
+import { supabase } from "../lib/supaClient.js";
 
 export default function SetupSupabase() {
   const [status, setStatus] = useState({ ok: false, msg: "Comprobando…" });
