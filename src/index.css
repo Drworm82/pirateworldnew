@@ -130,3 +130,60 @@ pre{
 /* ====== Enlaces secundarios ====== */
 a.link{ color:#a9d6ff; }
 a.link:hover{ text-decoration: underline; }
+/* === PirateWorld: Purchase Overlay === */
+.pw-overlay{
+  position:fixed; inset:0; z-index:9999;
+  background:rgba(0,0,0,.55); backdrop-filter: blur(2px);
+  display:flex; align-items:center; justify-content:center;
+}
+.pw-panel{
+  width:min(820px, 96vw); height:min(92vh, 1280px);
+  background:#1e293b; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.5);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.pw-header{
+  position:relative; padding:14px 48px 12px;
+  background:#0b1220; color:#fff; font-weight:800;
+  text-align:center; letter-spacing:.6px; border-bottom:1px solid #0d182a;
+}
+.pw-title{ font-size:18px; line-height:1.2; }
+.pw-close{
+  position:absolute; right:10px; top:8px; width:36px; height:36px;
+  border:none; border-radius:10px; color:#fff; background:#ef4444; font-weight:800; cursor:pointer;
+}
+.pw-canvas{ position:relative; flex:1; background:#22303d; }
+.pw-gridlines{
+  position:absolute; inset:0;
+  background:
+    linear-gradient(#41ff00 1px, transparent 1px) 0 0 / 48px 48px,
+    linear-gradient(90deg, #41ff00 1px, transparent 1px) 0 0 / 48px 48px;
+  opacity:.7;
+}
+.pw-rings{ position:absolute; inset:0; pointer-events:none; display:flex; align-items:center; justify-content:center;}
+.ring{ position:absolute; border:3px solid rgba(255,255,255,.45); border-radius:50%; }
+.r1{ width:55%; height:55%; }
+.r2{ width:72%; height:72%; opacity:.6; }
+.r3{ width:88%; height:88%; opacity:.35; }
+
+.pw-cells{
+  position:absolute; inset:0; display:grid;
+  grid-template-columns: repeat(16, 48px);
+  grid-template-rows: repeat(24, 48px);
+  gap:0;
+  padding:0; margin:0;
+}
+.cell{ box-sizing:border-box; }
+.cell.occupied{ background:rgba(255,45,45,.85); border:2px solid rgba(150,0,0,.9); }
+.cell.free{ background:transparent; cursor:pointer; }
+.cell.free:hover{ outline:3px solid rgba(255,255,255,.85); }
+
+.pw-footer{
+  position:absolute; left:0; right:0; bottom:18px;
+  display:flex; justify-content:center;
+}
+.pw-cancel{
+  background:#ef4444; color:#fff; border:none; border-radius:14px;
+  font-weight:900; letter-spacing:.6px; padding:14px 28px; cursor:pointer;
+  box-shadow:0 6px 0 #b91c1c;
+}
+.pw-cancel:active{ transform:translateY(2px); box-shadow:0 4px 0 #b91c1c; }
