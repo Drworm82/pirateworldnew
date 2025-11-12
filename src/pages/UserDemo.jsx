@@ -1,204 +1,158 @@
 // src/pages/UserDemo.jsx
-import React, { useState } from "react";
-import { ensureUser, getUserState, creditAd } from "../lib/supaApi.js";
-import { supabase } from "../lib/supaClient.js";
-
-const DEFAULT_EMAIL = "worm_jim@hotmail.com";
+import { useEffect, useState } from "react";
+import {
+  ensureUser,
+  getUserState,
+  getBalance,
+  creditAd,
+  buyParcel,
+  round4,
+  resetUserAndParcels, // si no lo usas, puedes quitar esta línea
+} from "../lib/supaApi.js";
+import ToastPurchase from "../components/ToastPurchase.jsx";
 
 export default function UserDemo() {
-  const [email, setEmail] = useState(DEFAULT_EMAIL);
+  const [email, setEmail] = useState("worm_jim@hotmail.com");
   const [user, setUser] = useState(null);
-  const [status, setStatus] = useState("Listo.");
-  const [busy, setBusy] = useState(false);
+  const [balance, setBalance] = useState(0);
+  const [loc, setLoc] = useState(null); // { lat, lng } o null
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState({ show: false, msg: "" });
 
-  // --- Crear o cargar usuario ---
-  async function load() {
-    try {
-      setBusy(true);
-      const { user: u } = await ensureUser(email.trim());
-      const fresh = await getUserState({ email: email.trim() });
-      const newUser = {
-        id: fresh?.user_id ?? u.id,
-        email: email.trim(),
-        soft_coins: fresh?.soft_coins ?? 0,
-      };
-      setUser(newUser);
-      localStorage.setItem("last_user_id", newUser.id); // 🔵 guarda tu UUID
-      setStatus("Usuario listo.");
-    } catch (e) {
-      setStatus("Error: " + (e?.message || e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // --- Ver anuncio ---
-  async function watchAd() {
-    if (!user?.id) return alert("Primero crea/carga el usuario.");
-    try {
-      setBusy(true);
-      setStatus("Acreditando anuncio…");
-      const res = await creditAd(user.id, "ad_view");
-      setUser((u) => ({ ...u, soft_coins: res.balance }));
-      setStatus("Anuncio acreditado (+1).");
-    } catch (e) {
-      alert("Error: " + (e?.message || e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // --- Refrescar saldo ---
-  async function refresh() {
-    if (!user?.id) return;
-    const fresh = await getUserState({ userId: user.id });
-    setUser((u) => ({ ...u, soft_coins: fresh.soft_coins }));
-  }
-
-  // --- Probar compra manual (x=10, y=20) ---
-  async function buyParcelTest() {
-    if (!user?.id) return alert("Primero crea/carga el usuario.");
-    try {
-      setBusy(true);
-      setStatus("Comprando parcela de prueba…");
-      const { data, error } = await supabase.rpc("buy_parcel", {
-        p_user_id: user.id,
-        p_cost: 100,
-        p_x: 10,
-        p_y: 20,
-      });
-      if (error) throw error;
-      alert(JSON.stringify(data, null, 2));
-      await refresh();
-      setStatus("Compra de parcela completada.");
-    } catch (err) {
-      alert("Error: " + err.message);
-      console.error(err);
-      setStatus("Error al comprar parcela.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // --- Comprar parcela en ubicación real (GPS) ---
-  async function buyParcelHere() {
-    if (!user?.id) return alert("Primero crea/carga el usuario.");
-    if (!navigator.geolocation) {
-      alert("Tu dispositivo no soporta GPS.");
-      return;
-    }
-
-    setBusy(true);
-    setStatus("Obteniendo ubicación...");
-
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        try {
-          setStatus(
-            `Comprando parcela en (${latitude.toFixed(4)}, ${longitude.toFixed(
-              4
-            )})...`
-          );
-
-          const { data, error } = await supabase.rpc("buy_parcel", {
-            p_user_id: user.id,
-            p_cost: 100,
-            p_x: longitude,
-            p_y: latitude,
-          });
-
-          if (error) throw error;
-          alert(JSON.stringify(data, null, 2));
-          await refresh();
-          setStatus("Compra completada ✅");
-        } catch (e) {
-          console.error(e);
-          alert("Error en la compra: " + e.message);
-          setStatus("Error al comprar.");
-        } finally {
-          setBusy(false);
-        }
+  useEffect(() => {
+    if (!("geolocation" in navigator)) return;
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setLoc({ lat, lng });
       },
-      (err) => {
-        alert("Error de GPS: " + err.message);
-        setBusy(false);
-        setStatus("Error de geolocalización.");
-      },
-      { enableHighAccuracy: true }
+      () => setLoc(null),
+      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 10_000 }
     );
+    return () => navigator.geolocation.clearWatch(id);
+  }, []);
+
+  async function loadOrCreate() {
+    try {
+      setLoading(true);
+      const { user: u } = await ensureUser(email);
+      setUser(u);
+      const b = await getBalance(u.id);
+      setBalance(b);
+    } catch (err) {
+      alert(`Error al crear/cargar usuario: ${err.message || err}`);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  // --- Render ---
+  async function refreshBalance() {
+    if (!user?.id) return;
+    try {
+      const b = await getBalance(user.id);
+      setBalance(b);
+      const u = await getUserState({ userId: user.id });
+      setUser(u);
+    } catch (err) {
+      alert(`No se pudo refrescar el saldo: ${err.message || err}`);
+    }
+  }
+
+  async function onAdClick() {
+    if (!user?.id) return alert("Primero crea/carga un usuario.");
+    try {
+      const { balance: b } = await creditAd(user.id);
+      setBalance(b);
+      const u = await getUserState({ userId: user.id });
+      setUser(u);
+    } catch (err) {
+      alert(`Error al acreditar anuncio: ${err.message || err}`);
+    }
+  }
+
+  async function onBuyHere() {
+    if (!user?.id) return alert("Primero crea/carga un usuario.");
+    if (!loc) return alert("Ubicación no disponible (sin GPS).");
+
+    const lat = round4(loc.lat);
+    const lng = round4(loc.lng);
+    const ok = window.confirm(`¿Comprar por 100 doblones en:\nlat=${lat}, lng=${lng}?`);
+    if (!ok) return;
+
+    try {
+      const res = await buyParcel({ userId: user.id, cost: 100, x: lng, y: lat });
+      if (res?.ok) {
+        setToast({
+          show: true,
+          msg: `🏝 Nueva parcela en lat=${lat}, lng=${lng}`,
+        });
+      } else {
+        const reason = res?.error || "rechazada";
+        alert(`Compra rechazada: ${reason}`);
+      }
+    } catch (err) {
+      alert(`Error al comprar: ${err.message || err}`);
+    } finally {
+      await refreshBalance();
+    }
+  }
+
+  async function onResetUser() {
+    if (!user?.id) return alert("Primero crea/carga un usuario.");
+    const ok = window.confirm("¿Seguro que deseas reiniciar este usuario y borrar todas sus parcelas?");
+    if (!ok) return;
+    try {
+      await resetUserAndParcels(user.id);
+      alert("✅ Usuario y parcelas reiniciados.");
+      window.location.reload();
+    } catch (err) {
+      alert("Error al reiniciar: " + err.message);
+    }
+  }
+
   return (
-    <>
-      <section className="card">
-        <h3>Email de prueba</h3>
-        <div className="row">
-          <input
-            className="input"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="tu@email.com"
-          />
-          <button className="btn" onClick={load} disabled={busy}>
-            Crear / Cargar
-          </button>
-        </div>
-      </section>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Demo usuario</h1>
 
-      <section className="grid two">
-        <div className="card">
-          <h3>Usuario</h3>
-          <pre className="pre">
-            {JSON.stringify(user ?? { info: "(sin usuario)" }, null, 2)}
-          </pre>
-        </div>
-
-        <div className="card">
-          <h3>Saldo</h3>
-          <div className="big">{user?.soft_coins ?? 0}</div>
-          <p className="muted">
-            1 anuncio = 1 doblón · 100 doblones = 1 parcela
-          </p>
-          <div className="row">
-            <button className="btn" onClick={watchAd} disabled={busy || !user}>
-              Ver anuncio (+1)
-            </button>
-            <button className="btn ghost" onClick={refresh} disabled={!user}>
-              Refrescar saldo
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section className="card">
-        <h3>Prueba de compra</h3>
-        <p>
-          Usa el RPC <code>buy_parcel(p_user_id, p_cost, p_x, p_y)</code>
-        </p>
-        <button className="btn" onClick={buyParcelTest} disabled={busy || !user}>
-          🏝️ Probar buy_parcel
+      <div className="mb-4">
+        <div className="mb-2">Email de prueba</div>
+        <input value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: 280 }} />
+        <button className="ml-2" onClick={loadOrCreate} disabled={loading}>
+          {loading ? "Cargando..." : "Crear / Cargar"}
         </button>
-      </section>
-
-      <section className="card">
-        <h3>Compra de parcela (GPS)</h3>
-        <p className="muted">
-          Compra una parcela en tu ubicación actual usando el GPS del dispositivo.
-        </p>
-        <button className="btn" onClick={buyParcelHere} disabled={busy || !user}>
-          🗺️ Comprar parcela aquí
-        </button>
-      </section>
-
-      <p className="muted">{status}</p>
-
-      <div className="row" style={{ marginTop: 12 }}>
-        <a className="btn ghost" href="#/tiles">
-          → Ir a Demo parcelas (tiles)
-        </a>
       </div>
-    </>
+
+      <section className="mb-6">
+        <h2 className="text-xl font-semibold mb-2">Usuario</h2>
+        <pre className="bg-[#0d1c2a] p-3 rounded">
+{JSON.stringify(user ?? { info: "(sin usuario)" }, null, 2)}
+        </pre>
+      </section>
+
+      <section className="mb-6">
+        <h2 className="text-xl font-semibold mb-2">Saldo</h2>
+        <div className="text-2xl font-bold mb-2">{balance}</div>
+        <div className="mb-2">1 anuncio = 1 doblón · 100 doblones = 1 parcela</div>
+        <button onClick={onAdClick} className="mr-2">Ver anuncio (+1)</button>
+        <button onClick={refreshBalance} className="mr-2">Refrescar saldo</button>
+        <button onClick={onResetUser}>Reiniciar usuario 🗑️</button>
+      </section>
+
+      <section>
+        <h2 className="text-xl font-semibold mb-2">Compra de parcela (GPS)</h2>
+        <p className="mb-2">Compra una parcela en tu ubicación actual. El backend redondea a 4dp.</p>
+        <button onClick={onBuyHere}>Comprar parcela (−100)</button>
+        <div className="mt-2 text-sm opacity-80">
+          Ubicación detectada: {loc ? `lat=${round4(loc.lat)} · lng=${round4(loc.lng)}` : "(sin GPS)"}
+        </div>
+      </section>
+
+      <ToastPurchase
+        show={toast.show}
+        message={toast.msg}
+        onClose={() => setToast({ show: false, msg: "" })}
+      />
+    </div>
   );
 }

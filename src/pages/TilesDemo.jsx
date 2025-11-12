@@ -1,199 +1,185 @@
 // src/pages/TilesDemo.jsx
-import React, { useEffect, useMemo, useState } from "react";
-import { cellsNear, buyParcel } from "../lib/supaApi.js";
-import PurchaseOverlay from "../components/PurchaseOverlay.jsx";
-
-// === Malla consistente con el backend ===
-// 4 decimales ≈ 0.0001° ≈ 10–11 m en latitud
-const PREC = 4;
-const STEP_DEG = 0.0001; // tamaño de celda en grados
-const COLS = 16;
-const ROWS = 10;
-
-function roundCoord(n, d = PREC) {
-  // Evita problemas de coma flotante
-  return Number((Math.round(Number(n + "e+" + d)) + "e-" + d));
-}
-
-// Ancla el centro a la malla (para que el grid siempre “caiga” en la rejilla)
-function snapCenter(center) {
-  return {
-    lat: roundCoord(center.lat, PREC),
-    lng: roundCoord(center.lng, PREC),
-  };
-}
+import { useEffect, useMemo, useState } from "react";
+import { cellsNear, buyParcel, round4, getLastUserId } from "../lib/supaApi.js";
+import HoverHUD from "../components/HoverHUD.jsx";
+import ToastPurchase from "../components/ToastPurchase.jsx";
 
 export default function TilesDemo() {
-  const [center, setCenter] = useState(snapCenter({ lat: 19.4326, lng: -99.1332 })); // CDMX
-  const [tilesDB, setTilesDB] = useState([]);
-  const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState("Listo.");
-  const [userId, setUserId] = useState(null);
-  const [showOverlay, setShowOverlay] = useState(false);
+  const userId = getLastUserId();
+  const [center, setCenter] = useState({ lat: 19.4326, lng: -99.1332 });
+  const [occupied, setOccupied] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [hover, setHover] = useState(null);
+  const [toast, setToast] = useState({ show: false, msg: "" });
 
-  // Cargar user ID de “Demo usuario”
-  useEffect(() => {
-    const uid = localStorage.getItem("last_user_id");
-    if (uid) setUserId(uid);
-  }, []);
+  const GRID_SIZE = 20;     // 20x20 = 400 celdas
+  const STEP_LAT  = 0.0012; // ~133 m
+  const RADIUS_M  = 5000;   // 5 km
 
-  // Carga desde RPC (lo que ya existe cerca del centro)
-  async function loadFromDB() {
+  async function reload() {
+    setLoading(true);
     try {
-      setBusy(true);
-      setStatus("Cargando parcelas cercanas…");
-      const data = await cellsNear(center.lat, center.lng, 2000, 200);
-      // Redondea lo que viene de DB por si hubiera valores previos sin normalizar
-      const norm = (data || []).map((t) => ({
-        ...t,
-        x: t?.x != null ? roundCoord(t.x) : t.x,
-        y: t?.y != null ? roundCoord(t.y) : t.y,
-      }));
-      setTilesDB(norm);
-      setStatus(`Parcelas encontradas: ${norm.length}`);
-    } catch (e) {
-      console.error(e);
-      setTilesDB([]);
-      setStatus("Error al cargar parcelas: " + e.message);
+      const data = await cellsNear({
+        x: center.lng,
+        y: center.lat,
+        radiusM: RADIUS_M,
+      });
+      setOccupied(Array.isArray(data) ? data : []);
+    } catch (err) {
+      alert("Error al cargar parcelas cercanas: " + err.message);
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
   }
 
-  useEffect(() => {
-    loadFromDB();
-  }, [center.lat, center.lng]);
+  useEffect(() => { reload(); }, [center.lat, center.lng]);
 
-  // Grid embebido (vista normal) alineado a la malla
-  const gridSmall = useMemo(() => {
-    const db = tilesDB || [];
+  const occMap = useMemo(() => {
+    const m = new Map();
+    for (const r of occupied) {
+      m.set(`${round4(r.y)},${round4(r.x)}`, r);
+    }
+    return m;
+  }, [occupied]);
 
-    // Arriba/izquierda del grid alineado y redondeado
-    const lat0 = roundCoord(center.lat + (ROWS / 2 - 0.5) * STEP_DEG);
-    const lng0 = roundCoord(center.lng - (COLS / 2 - 0.5) * STEP_DEG);
-
-    // index simple por "x|y" para lookup exacto
-    const index = new Map();
-    for (const t of db) {
-      if (t.x != null && t.y != null) {
-        index.set(`${roundCoord(t.x)}|${roundCoord(t.y)}`, t);
+  const gridCells = useMemo(() => {
+    const cells = [];
+    const mid = Math.floor(GRID_SIZE / 2);
+    for (let gy = -mid; gy < GRID_SIZE - mid; gy++) {
+      const stepLon = STEP_LAT / Math.max(0.2, Math.cos((center.lat * Math.PI) / 180));
+      for (let gx = -mid; gx < GRID_SIZE - mid; gx++) {
+        const lat = round4(center.lat + gy * STEP_LAT);
+        const lng = round4(center.lng + gx * stepLon);
+        const key = `${lat},${lng}`;
+        const occ = occMap.get(key);
+        let status = "free";
+        if (occ) status = occ.owner_id === userId ? "mine" : "taken";
+        cells.push({ id: key, lat, lng, status });
       }
     }
+    return cells;
+  }, [center, occMap, userId]);
 
-    const out = [];
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        const lat = roundCoord(lat0 - r * STEP_DEG);
-        const lng = roundCoord(lng0 + c * STEP_DEG);
-        const key = `${lng}|${lat}`; // ojo: x=lng | y=lat
-        const match = index.get(key);
-        const owner = match?.owner_id || null;
-        out.push({
-          key: `${r}-${c}`,
-          lat,
-          lng,
-          owner,
-          mine: owner && userId && owner === userId,
+  async function onBuy(cell) {
+    if (!userId) return alert("Primero crea/carga un usuario en Demo usuario.");
+    if (cell.status !== "free") return;
+
+    if (!window.confirm(`¿Comprar por 100 doblones en:\nlat=${cell.lat}, lng=${cell.lng}?`)) return;
+
+    try {
+      const r = await buyParcel({ userId, cost: 100, x: cell.lng, y: cell.lat });
+      if (r?.ok) {
+        setToast({
+          show: true,
+          msg: `🏝 Nueva parcela en lat=${cell.lat}, lng=${cell.lng}`,
         });
+        await reload();
+      } else {
+        alert("❌ Compra rechazada: " + (r?.error || "desconocido"));
       }
-    }
-    return out;
-  }, [tilesDB, center, userId]);
-
-  function colorOf(cell) {
-    if (!cell.owner) return "#22c55e"; // libre
-    if (cell.mine) return "#3b82f6";   // tuya
-    return "#4b5563";                  // ocupada
-  }
-
-  async function buyAt(lat, lng) {
-    if (!userId) {
-      alert("Primero crea/carga tu usuario en «Demo usuario».");
-      return;
-    }
-    // Redondear en cliente ANTES de comprar (match perfecto con backend)
-    const rx = roundCoord(lng);
-    const ry = roundCoord(lat);
-    const ok = confirm(`¿Comprar por 100 doblones?\n(${ry.toFixed(PREC)}, ${rx.toFixed(PREC)})`);
-    if (!ok) return;
-    try {
-      setBusy(true);
-      setStatus("Comprando parcela…");
-      const res = await buyParcel(userId, rx, ry, 100);
-      alert(JSON.stringify(res, null, 2));
-      await loadFromDB();
-      setStatus("Compra completada ✅");
-    } catch (e) {
-      console.error(e);
-      alert("Error al comprar: " + e.message);
-      setStatus("Error al comprar.");
-    } finally {
-      setBusy(false);
+    } catch (err) {
+      alert("Error al comprar: " + err.message);
     }
   }
+
+  // Estilos inline (sin Tailwind)
+  const styles = {
+    legendDot: (color) => ({
+      display: "inline-block",
+      width: 12, height: 12, borderRadius: 4, backgroundColor: color,
+      marginRight: 6, verticalAlign: "middle"
+    }),
+    gridWrap: {
+      display: "grid",
+      gridTemplateColumns: `repeat(${GRID_SIZE}, 18px)`,
+      gap: "6px",
+      padding: "12px",
+      borderRadius: "12px",
+      background: "#071522",
+      boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)",
+      width: "fit-content"
+    },
+    cell: (status) => {
+      const color =
+        status === "free"  ? "#22c55e" : // verde
+        status === "mine"  ? "#38bdf8" : // azul
+                              "#52525b";  // gris
+      return {
+        width: 18,
+        height: 18,
+        borderRadius: 4,
+        backgroundColor: color,
+        border: "none",
+        cursor: status === "free" ? "pointer" : "default",
+      };
+    }
+  };
 
   return (
-    <section className="card">
-      <h3>Mapa de parcelas</h3>
-      <p className="muted">
-        <span style={{ color: "#22c55e" }}>■</span> Libres ·{" "}
-        <span style={{ color: "#3b82f6" }}>■</span> Tuyas ·{" "}
-        <span style={{ color: "#4b5563" }}>■</span> Ocupadas
-      </p>
+    <div style={{ padding: 24 }}>
+      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 16 }}>Mapa de parcelas</h1>
 
-      <div className="row" style={{ gap: 8, marginBottom: 8 }}>
-        <button className="btn" onClick={loadFromDB} disabled={busy}>🔄 Recargar</button>
-        <button className="btn" onClick={() => setShowOverlay(true)} disabled={busy}>🗺️ Modo compra</button>
-        <button
-          className="btn ghost"
-          onClick={() => setCenter(snapCenter({ lat: 19.4326, lng: -99.1332 }))}
-          disabled={busy}
-        >
-          📍 Centrar CDMX
+      <div style={{ marginBottom: 12 }}>
+        <button onClick={reload} disabled={loading} style={{ marginRight: 8 }}>
+          {loading ? "Cargando..." : "Recargar"}
+        </button>
+        <button onClick={() => setCenter({ lat: 19.4326, lng: -99.1332 })}>
+          Centrar CDMX
         </button>
       </div>
 
-      {/* grid compacto */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: `repeat(${COLS}, 24px)`,
-          gap: "4px",
-          background: "#000",
-          padding: 8,
-          borderRadius: 8,
-          width: "min-content",
-        }}
-      >
-        {gridSmall.map((cell) => (
-          <div
-            key={cell.key}
-            title={`(${cell.lat.toFixed(PREC)}, ${cell.lng.toFixed(PREC)})`}
-            style={{
-              width: 24,
-              height: 24,
-              borderRadius: 4,
-              background: colorOf(cell),
-              boxShadow: "0 0 4px rgba(0,0,0,.4)",
-            }}
+      {/* Leyenda */}
+      <div style={{ fontSize: 14, marginBottom: 8, opacity: 0.85 }}>
+        <span style={{ marginRight: 16 }}>
+          <span style={styles.legendDot("#22c55e")} /> Libres
+        </span>
+        <span style={{ marginRight: 16 }}>
+          <span style={styles.legendDot("#38bdf8")} /> Tuyas
+        </span>
+        <span>
+          <span style={styles.legendDot("#52525b")} /> Ocupadas
+        </span>
+      </div>
+
+      {/* Grid */}
+      <div style={styles.gridWrap} onMouseLeave={() => setHover(null)}>
+        {gridCells.map((c) => (
+          <button
+            key={c.id}
+            title={`lat=${c.lat}, lng=${c.lng}`}
+            onClick={() => onBuy(c)}
+            disabled={c.status !== "free"}
+            onMouseEnter={() =>
+              setHover({
+                x: c.lng,
+                y: c.lat,
+                state: c.status === "mine" ? "tuya" : c.status === "taken" ? "ocupada" : "libre",
+              })
+            }
+            onMouseLeave={() => setHover(null)}
+            style={styles.cell(c.status)}
           />
         ))}
       </div>
 
-      <pre className="pre" style={{ marginTop: 12, maxHeight: 220, overflow: "auto" }}>
-        {JSON.stringify(tilesDB, null, 2)}
-      </pre>
-      <p className="muted">{status}</p>
+      <div style={{ marginTop: 12, fontSize: 14, opacity: 0.85 }}>
+        Parcelas visibles: {gridCells.length} · Ocupadas cerca: {occupied.length}
+      </div>
 
-      {showOverlay && (
-        <PurchaseOverlay
-          center={center}
-          tilesDB={tilesDB}
-          userId={userId}
-          onBuy={(lat, lng) => buyAt(lat, lng)}  // compra con redondeo en cliente
-          onClose={() => setShowOverlay(false)}
-        />
-      )}
-    </section>
+      <div style={{ marginTop: 8, fontSize: 12, opacity: 0.6 }}>
+        (El grid muestra posibles celdas. Las ocupadas provienen de la BD y se “pintan” encima.
+        Haz click en una libre para comprar.)
+      </div>
+
+      {/* HUD flotante */}
+      <HoverHUD hover={hover} />
+
+      {/* Toast compra */}
+      <ToastPurchase
+        show={toast.show}
+        message={toast.msg}
+        onClose={() => setToast({ show: false, msg: "" })}
+      />
+    </div>
   );
 }
