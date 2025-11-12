@@ -214,3 +214,44 @@ nav.nav a.active { background: #1d2c4d; color: #fff; }
   .board .cell, .purchase-board .cell { border-radius: 4px; }
   .purchase-panel { padding: 12px; }
 }
+/* dots para leyenda */
+.dot { width:12px; height:12px; display:inline-block; border-radius:3px; }
+.dot-free { background:#2ecc71; }
+.dot-mine { background:#3b82f6; }
+.dot-taken { background:#7f8c8d; }
+
+/* lienzo del grid en TilesDemo */
+.tiles-wrap {
+  position: relative;
+  width: min(860px, 96vw);
+  margin: 12px auto 0;
+}
+.tiles-box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1; /* cuadrado */
+  display: grid;
+  grid-template-columns: repeat(21, 1fr);
+  gap: 6px;
+  padding: 6px;
+  border-radius: 14px;
+  background: #0c2034;
+  box-shadow: inset 0 0 0 6px #0b1d2f, 0 0 0 3px #0b1d2f;
+  overflow: hidden;
+}
+.tiles-box .cell {
+  width: 100%; height: 100%;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 3px #172b3f;
+}
+.tiles-box .cell.free { background:#2ecc71; }
+.tiles-box .cell.mine { background:#3b82f6; }
+.tiles-box .cell.taken { background:#7f8c8d; }
+
+.rings .ring {
+  position:absolute; border:3px solid rgba(255,255,255,.12); border-radius:50%;
+  left:50%; top:50%; transform: translate(-50%, -50%);
+}
+.rings .r1 { width:70%; height:70%; }
+.rings .r2 { width:52%; height:52%; }
+.rings .r3 { width:35%; height:35%; }
