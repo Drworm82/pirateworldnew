@@ -1,4 +1,4 @@
-// src/pages/UserDemo.jsx
+// ...imports iguales
 import { useEffect, useState } from "react";
 import {
   ensureUser,
@@ -7,7 +7,7 @@ import {
   creditAd,
   buyParcel,
   round4,
-  resetUserAndParcels, // si no lo usas, puedes quitar esta línea
+  resetUserAndParcels,
 } from "../lib/supaApi.js";
 import ToastPurchase from "../components/ToastPurchase.jsx";
 
@@ -19,19 +19,28 @@ export default function UserDemo() {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ show: false, msg: "" });
 
+  // ---------- GPS robusto ----------
   useEffect(() => {
     if (!("geolocation" in navigator)) return;
-    const id = navigator.geolocation.watchPosition(
-      (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        setLoc({ lat, lng });
-      },
-      () => setLoc(null),
-      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 10_000 }
-    );
+
+    const opts = { enableHighAccuracy: true, maximumAge: 30_000, timeout: 15_000 };
+
+    const onOK = (pos) => {
+      setLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+    };
+    const onErr = () => {
+      // No ponemos alert para no ser invasivos; dejamos loc en null
+      setLoc(null);
+    };
+
+    // 1) un fix “rápido” para tomar la primera lectura
+    navigator.geolocation.getCurrentPosition(onOK, onErr, opts);
+
+    // 2) seguimiento continuo
+    const id = navigator.geolocation.watchPosition(onOK, onErr, opts);
     return () => navigator.geolocation.clearWatch(id);
   }, []);
+  // ---------- /GPS ----------
 
   async function loadOrCreate() {
     try {
@@ -83,13 +92,9 @@ export default function UserDemo() {
     try {
       const res = await buyParcel({ userId: user.id, cost: 100, x: lng, y: lat });
       if (res?.ok) {
-        setToast({
-          show: true,
-          msg: `🏝 Nueva parcela en lat=${lat}, lng=${lng}`,
-        });
+        setToast({ show: true, msg: `🏝 Nueva parcela en lat=${lat}, lng=${lng}` });
       } else {
-        const reason = res?.error || "rechazada";
-        alert(`Compra rechazada: ${reason}`);
+        alert(`Compra rechazada: ${res?.error || "rechazada"}`);
       }
     } catch (err) {
       alert(`Error al comprar: ${err.message || err}`);
@@ -109,6 +114,12 @@ export default function UserDemo() {
     } catch (err) {
       alert("Error al reiniciar: " + err.message);
     }
+  }
+
+  // 👉 Botón auxiliar para tests en desktop/preview
+  function simulateCDMX() {
+    setLoc({ lat: 19.4326, lng: -99.1332 });
+    alert("📍 Ubicación simulada: CDMX.");
   }
 
   return (
@@ -143,6 +154,7 @@ export default function UserDemo() {
         <h2 className="text-xl font-semibold mb-2">Compra de parcela (GPS)</h2>
         <p className="mb-2">Compra una parcela en tu ubicación actual. El backend redondea a 4dp.</p>
         <button onClick={onBuyHere}>Comprar parcela (−100)</button>
+        <button onClick={simulateCDMX} className="ml-2">Simular GPS (CDMX)</button>
         <div className="mt-2 text-sm opacity-80">
           Ubicación detectada: {loc ? `lat=${round4(loc.lat)} · lng=${round4(loc.lng)}` : "(sin GPS)"}
         </div>
