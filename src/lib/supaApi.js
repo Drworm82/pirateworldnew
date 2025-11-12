@@ -1,130 +1,210 @@
 // src/lib/supaApi.js
-import { createClient } from "@supabase/supabase-js";
+// -----------------------------------------------
+// Cliente Supabase
+import { getClient as _getClient } from "./supaClient.js";
+export const getSupa = _getClient;     // alias compatibilidad
+export { _getClient as getClient };    // re-export explícito
 
-const URL_KEY = "VITE_SUPABASE_URL";
-const KEY_KEY = "VITE_SUPABASE_ANON_KEY";
-
-// 1) .env.local primero
-const ENV_URL = import.meta.env.VITE_SUPABASE_URL;
-const ENV_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-// 2) helpers opcionales
-export function saveRuntimeEnv(url, anonKey) {
-  if (url) localStorage.setItem(URL_KEY, url);
-  if (anonKey) localStorage.setItem(KEY_KEY, anonKey);
-}
-export function isConfigured() {
-  const hasEnv = Boolean(ENV_URL && ENV_KEY);
-  const hasStorage =
-    Boolean(localStorage.getItem(URL_KEY)) &&
-    Boolean(localStorage.getItem(KEY_KEY));
-  return hasEnv || hasStorage;
+// -----------------------------------------------
+// Utils
+export function round4(n) {
+  return Number(Number(n).toFixed(4));
 }
 
-// 3) cliente singleton
-let _client = null;
-export function getSupa() {
-  if (_client) return _client;
-  const url = ENV_URL || localStorage.getItem(URL_KEY);
-  const key = ENV_KEY || localStorage.getItem(KEY_KEY);
-  if (!url || !key) {
-    console.warn("⚠️ Supabase no configurado.");
-    return null;
-  }
-  _client = createClient(url, key);
-  return _client;
+// -----------------------------------------------
+// “Sesión” local (recordar último usuario)
+export function getLastUserId() {
+  try { return localStorage.getItem("last_user_id") || null; } catch { return null; }
+}
+export function setLastUserId(id) {
+  if (!id) return;
+  try { localStorage.setItem("last_user_id", id); } catch {}
 }
 
-// -------- API --------
+// -----------------------------------------------
+// Usuarios
 export async function ensureUser(email) {
-  const supa = getSupa();
-  if (!supa) throw new Error("Supabase no configurado");
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+  const e = String(email || "").trim().toLowerCase();
+  if (!e) throw new Error("Email requerido");
 
-  const { data, error } = await supa
+  // Buscar por email
+  const sel = await sb
     .from("users")
-    .select("*")
-    .eq("email", email)
+    .select("id,email,soft_coins")
+    .eq("email", e)
+    .maybeSingle();
+  if (sel.error) throw sel.error;
+
+  if (sel.data) {
+    setLastUserId(sel.data.id);
+    return { user: sel.data, created: false };
+  }
+
+  // Crear
+  const ins = await sb
+    .from("users")
+    .insert({ email: e })
+    .select("id,email,soft_coins")
     .single();
+  if (ins.error) throw ins.error;
 
-  if (error && error.code !== "PGRST116") throw error;
-
-  if (!data) {
-    const { data: ins, error: err2 } = await supa
-      .from("users")
-      .insert({ email })
-      .select()
-      .single();
-    if (err2) throw err2;
-    return { user: ins };
-  }
-  return { user: data };
+  setLastUserId(ins.data.id);
+  return { user: ins.data, created: true };
 }
 
-export async function getUserState({ email, userId }) {
-  const supa = getSupa();
-  if (!supa) throw new Error("Supabase no configurado");
+export async function getUserState({ userId, email } = {}) {
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
 
-  if (userId) {
-    const { data, error } = await supa
-      .from("users")
-      .select("id, soft_coins")
-      .eq("id", userId)
-      .single();
-    if (error) throw error;
-    return { user_id: data.id, soft_coins: data.soft_coins };
+  if (!userId && email) {
+    const e = String(email || "").trim().toLowerCase();
+    const r = await sb.from("users").select("id").eq("email", e).maybeSingle();
+    if (r.error) throw r.error;
+    if (!r.data) throw new Error("Usuario no encontrado");
+    userId = r.data.id;
   }
+  if (!userId) throw new Error("userId requerido");
 
-  if (email) {
-    const { data, error } = await supa
-      .from("users")
-      .select("id, soft_coins")
-      .eq("email", email)
-      .single();
-    if (error) throw error;
-    return { user_id: data.id, soft_coins: data.soft_coins };
-  }
-
-  throw new Error("Falta email o userId");
-}
-
-export async function creditAd(user_id, reason = "ad_view") {
-  const supa = getSupa();
-  if (!supa) throw new Error("Supabase no configurado");
-
-  const { data, error } = await supa.rpc("credit_ad", {
-    p_user_id: user_id,
-    p_reason: reason,
-  });
+  const { data, error } = await sb
+    .from("users")
+    .select("id,email,soft_coins")
+    .eq("id", userId)
+    .single();
   if (error) throw error;
   return data;
 }
 
-// --- Cercanas (para TilesDemo) ---
-export async function cellsNear(lat, lng, radius_m = 2000, limit = 100) {
-  const supa = getSupa();
-  if (!supa) throw new Error("Supabase no configurado");
-
-  const { data, error } = await supa.rpc("cells_near", {
-    p_lat: lat,
-    p_lng: lng,
-    p_radius_m: radius_m,
-    p_limit: limit,
-  });
-  if (error) throw error;
-  return data ?? [];
+export async function getBalance(userId) {
+  if (!userId) throw new Error("userId requerido");
+  const u = await getUserState({ userId });
+  return Number(u?.soft_coins ?? 0);
 }
 
-// --- Comprar parcela (RPC buy_parcel) ---
-export async function buyParcel(userId, x, y, cost = 100) {
-  const supa = getSupa();
-  if (!supa) throw new Error("Supabase no configurado");
+/** +1 por anuncio y devuelve { ok, balance } */
+export async function creditAd(userId, note = "ad_view") {
+  if (!userId) throw new Error("userId requerido");
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
 
-  const { data, error } = await supa.rpc("buy_parcel", {
-    p_user_id: userId,
-    p_cost: cost,
-    p_x: x,
-    p_y: y,
+  // (opcional) si tienes tabla ledger, intenta registrar; ignora si no existe
+  const ins = await sb.from("ledger").insert({
+    user_id: userId, kind: "credit", qty: 1, reason: "ad", note
   });
+  if (ins.error && ins.error.code !== "42P01") throw ins.error;
+
+  // Incremento simple: lee, suma y guarda
+  const u = await getUserState({ userId });
+  const next = Number(u?.soft_coins ?? 0) + 1;
+
+  const upd = await sb
+    .from("users")
+    .update({ soft_coins: next })
+    .eq("id", userId)
+    .select("soft_coins")
+    .single();
+  if (upd.error) throw upd.error;
+
+  return { ok: true, balance: Number(upd.data?.soft_coins ?? next) };
+}
+
+export async function pingSupabase() {
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+  const { error } = await sb.from("users").select("id").limit(1);
   if (error) throw error;
-  return data;
+  return { ok: true };
+}
+
+// -----------------------------------------------
+// Parcels
+export async function listMyParcels(userId) {
+  if (!userId) throw new Error("userId requerido");
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const { data, error } = await sb
+    .from("parcels")
+    .select("id,x,y,owner_id,created_at")
+    .eq("owner_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+/**
+ * cellsNear({ x, y, radiusM }) o cellsNear(x, y, radiusM)
+ * x=lon, y=lat
+ */
+export async function cellsNear(arg1, arg2, arg3) {
+  let x, y, radiusM;
+  if (typeof arg1 === "object" && arg1 !== null) {
+    x = Number(arg1.x); y = Number(arg1.y); radiusM = Number(arg1.radiusM ?? 500);
+  } else {
+    x = Number(arg1); y = Number(arg2); radiusM = Number(arg3 ?? 500);
+  }
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    throw new Error("cellsNear: coordenadas inválidas");
+  }
+
+  // Bounding box aproximado
+  const metersPerDegLat = 111_320;
+  const metersPerDegLon = 111_320 * Math.cos((y * Math.PI) / 180);
+  const dLat = radiusM / metersPerDegLat;
+  const dLon = radiusM / metersPerDegLon;
+
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const { data, error } = await sb
+    .from("parcels")
+    .select("id,x,y,owner_id,created_at")
+    .gte("x", x - dLon).lte("x", x + dLon)
+    .gte("y", y - dLat).lte("y", y + dLat)
+    .limit(1000);
+  if (error) throw error;
+
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    x: Number(r.x),
+    y: Number(r.y),
+    owner_id: r.owner_id,
+    created_at: r.created_at,
+  }));
+}
+
+/** Comprar parcela vía RPC buy_parcel (coords opcionales) */
+export async function buyParcel({ userId, cost = 100, x = null, y = null }) {
+  if (!userId) throw new Error("userId requerido");
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const args = { p_user_id: userId, p_cost: cost };
+  if (x != null && y != null) {
+    args.p_x = round4(x);
+    args.p_y = round4(y);
+  }
+
+  const { data, error } = await sb.rpc("buy_parcel", args);
+  if (error) throw error;
+  return data; // { ok, parcel_id, soft_coins, error? }
+}
+
+/** 🔄 Reset: borra parcelas del usuario y pone soft_coins en 0 */
+export async function resetUserAndParcels(userId) {
+  if (!userId) throw new Error("userId requerido");
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const del = await sb.from("parcels").delete().eq("owner_id", userId);
+  if (del.error) throw del.error;
+
+  const upd = await sb
+    .from("users")
+    .update({ soft_coins: 0 })
+    .eq("id", userId);
+  if (upd.error) throw upd.error;
+
+  return { ok: true };
 }

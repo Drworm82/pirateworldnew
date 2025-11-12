@@ -1,189 +1,216 @@
-/* src/index.css */
-/* ====== Reset + Variables ====== */
+/* =========================================================
+   PirateWorld — Hoja de estilos global (tema oscuro)
+   ========================================================= */
+
+/* Reset suave */
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
-:root{
-  --bg-1:#0c1220;
-  --bg-2:#0a1730;
-  --panel:#0f1b2e;
-  --panel-2:#0b1627;
-  --muted:#9fb1c7;
-  --text:#e8eef6;
-  --brand:#3ea6ff;        /* acento náutico */
-  --ok:#65d48c;
-  --danger:#ff6b6b;
-  --warning:#f5c147;
-  --ring: rgba(62,166,255,.35);
-  --border: rgba(255,255,255,.08);
-  --shadow: 0 10px 30px rgba(0,0,0,.35);
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Segoe UI Symbol", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+  color: #e6eefc;
+  background: #0b132b; /* azul oscuro */
 }
 
-/* ====== Fondo sutil oceánico ====== */
-body{
-  margin:0; color:var(--text);
-  background:
-    radial-gradient(120% 100% at 70% 0%, #143257 0%, #0d2442 40%, #0b1830 75%, #0a1327 100%),
-    linear-gradient(180deg, var(--bg-1), var(--bg-2));
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, "Helvetica Neue", Arial;
+/* Layout base */
+.app-shell { min-height: 100%; position: relative; }
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px;
 }
 
-/* ====== Contenedores ====== */
-.container{ max-width:1100px; margin:0 auto; padding:16px; }
-.page{ padding:8px 0 40px; }
-.page h1{ margin:6px 0 10px; font-size:clamp(22px, 3.6vw, 32px); letter-spacing:.3px;}
-.page .status{ color:var(--muted); margin:4px 0 14px; }
-
-/* ====== Navbar ====== */
-.nav{
-  position: sticky; top:0; z-index:10;
-  display:flex; gap:14px; padding:12px 16px;
-  background: linear-gradient(180deg, rgba(7,12,20,.9), rgba(7,12,20,.55) 60%, transparent);
-  backdrop-filter: blur(8px);
-  border-bottom:1px solid var(--border);
+/* Nav superior muy simple */
+nav.nav {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 6px 0 18px;
 }
-.nav a{
-  text-decoration:none; font-weight:600; letter-spacing:.2px;
-  color:#cfe1ff; padding:8px 10px; border-radius:10px;
+nav.nav a {
+  color: #a7c5ff;
+  text-decoration: none;
+  padding: 6px 10px;
+  background: #14213d;
+  border-radius: 8px;
+  border: 1px solid #1d2c4d;
+  font-weight: 600;
 }
-.nav a:hover{ background:rgba(255,255,255,.06); }
-.nav a.active{ background:#162945; color:#fff; }
+nav.nav a.active { background: #1d2c4d; color: #fff; }
 
-/* ====== Tarjetas ====== */
-.card{
-  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
-  border:1px solid var(--border);
-  border-radius:14px; padding:14px; box-shadow: var(--shadow);
-}
-.card h3{ margin:4px 0 8px; font-size:16px; }
-.muted{ color:var(--muted); }
-
-/* ====== Layout grid simple ====== */
-.grid{
-  display:grid; gap:14px;
+/* Utilidades */
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.grid.two {
+  display: grid;
   grid-template-columns: 1fr;
+  gap: 12px;
 }
-@media (min-width:900px){
-  .grid-2{ grid-template-columns: 1fr 1fr; }
-  .grid-3{ grid-template-columns: 2fr 1fr 1fr; }
+@media (min-width: 850px) {
+  .grid.two { grid-template-columns: 1fr 1fr; }
 }
+.muted { color: #b5c4e3; opacity: .8; }
+.big { font-size: 40px; font-weight: 800; line-height: 1; }
 
-/* ====== Controles ====== */
-.row{ display:flex; gap:10px; align-items:center; }
-.input, input[type="number"], input[type="text"], input[type="email"]{
-  width:100%; min-width:0;
-  background: var(--panel-2);
-  color: var(--text);
-  border:1px solid var(--border);
-  border-radius:10px; padding:10px 12px;
-  outline:none; transition:border .15s, box-shadow .15s;
+/* Cards */
+.card {
+  background: #0f213d;
+  border: 1px solid #1b2f56;
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
 }
-.input:focus, input:focus{
-  border-color: var(--brand);
-  box-shadow: 0 0 0 4px var(--ring);
+.card h3 { margin: 2px 0 10px; }
+
+/* Inputs y botones */
+.input {
+  background: #0b1731;
+  border: 1px solid #213a70;
+  color: #e6eefc;
+  padding: 10px 12px;
+  border-radius: 10px;
+  min-width: 260px;
+  outline: none;
 }
-.btn{
-  appearance:none; cursor:pointer; border:1px solid var(--border);
-  background: #12253f; color:#d7e7ff; font-weight:700;
-  padding:10px 12px; border-radius:10px;
-  transition: filter .15s, transform .05s;
+.input:focus { border-color: #3b82f6; }
+
+.btn {
+  background: #2563eb;
+  border: 1px solid #1e4fc2;
+  color: #fff;
+  padding: 9px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+  letter-spacing: .2px;
 }
-.btn:hover{ filter: brightness(1.08); }
-.btn:active{ transform: translateY(1px); }
-.btn[disabled]{ opacity:.6; cursor:not-allowed; }
-.btn.primary{
-  border-color: rgba(62,166,255,.65);
-  background: linear-gradient(180deg, #2e7ac7, #1e5aa0);
-}
-.btn.outline{
+.btn:hover { filter: brightness(1.05); }
+.btn:disabled { opacity: .6; cursor: not-allowed; }
+
+.btn.ghost {
   background: transparent;
+  color: #c1d3ff;
+  border: 1px solid #2a437a;
 }
-.btn.danger{
-  background: linear-gradient(180deg, #ce4b4b, #992f2f);
-  border-color: rgba(255,107,107,.5);
-}
-
-/* ====== Pre monospace ====== */
-pre{
-  background: #0a1526; color:#c9d8ec; border:1px solid var(--border);
-  padding:10px; border-radius:10px; overflow:auto;
+.btn.danger {
+  background: #e11d48;
+  border-color: #be123c;
 }
 
-/* ====== Listado de tiles ====== */
-.list{ list-style:none; padding:0; margin:0; }
-.list li{
-  display:flex; align-items:center; gap:10px;
-  padding:8px 10px; border-bottom:1px dashed var(--border);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-  font-size:13px;
+.pre {
+  background: #061226;
+  border: 1px solid #1a2d53;
+  color: #d4e3ff;
+  border-radius: 10px;
+  padding: 10px;
+  overflow: auto;
+  font-size: 13px;
 }
-.badge{
-  display:inline-flex; align-items:center; gap:6px;
-  padding:2px 8px; border-radius:999px; font-weight:700; font-size:12px;
-  border:1px solid var(--border); background:rgba(255,255,255,.06);
-}
-.badge.ok{ color:#b9f7c9; border-color: rgba(101,212,140,.35); background: rgba(101,212,140,.12); }
-.badge.err{ color:#ffd1d1; border-color: rgba(255,107,107,.35); background: rgba(255,107,107,.12); }
-.dot{ width:9px; height:9px; border-radius:50%; display:inline-block; }
-.dot.green{ background:#3ddc84; }
-.dot.red{ background:#ff6b6b; }
 
-/* ====== Enlaces secundarios ====== */
-a.link{ color:#a9d6ff; }
-a.link:hover{ text-decoration: underline; }
-/* === PirateWorld: Purchase Overlay === */
-.pw-overlay{
-  position:fixed; inset:0; z-index:9999;
-  background:rgba(0,0,0,.55); backdrop-filter: blur(2px);
-  display:flex; align-items:center; justify-content:center;
+/* Leyenda */
+.legend {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
 }
-.pw-panel{
-  width:min(820px, 96vw); height:min(92vh, 1280px);
-  background:#1e293b; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.5);
-  display:flex; flex-direction:column; overflow:hidden;
+.legend .dot {
+  display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px;
 }
-.pw-header{
-  position:relative; padding:14px 48px 12px;
-  background:#0b1220; color:#fff; font-weight:800;
-  text-align:center; letter-spacing:.6px; border-bottom:1px solid #0d182a;
-}
-.pw-title{ font-size:18px; line-height:1.2; }
-.pw-close{
-  position:absolute; right:10px; top:8px; width:36px; height:36px;
-  border:none; border-radius:10px; color:#fff; background:#ef4444; font-weight:800; cursor:pointer;
-}
-.pw-canvas{ position:relative; flex:1; background:#22303d; }
-.pw-gridlines{
-  position:absolute; inset:0;
-  background:
-    linear-gradient(#41ff00 1px, transparent 1px) 0 0 / 48px 48px,
-    linear-gradient(90deg, #41ff00 1px, transparent 1px) 0 0 / 48px 48px;
-  opacity:.7;
-}
-.pw-rings{ position:absolute; inset:0; pointer-events:none; display:flex; align-items:center; justify-content:center;}
-.ring{ position:absolute; border:3px solid rgba(255,255,255,.45); border-radius:50%; }
-.r1{ width:55%; height:55%; }
-.r2{ width:72%; height:72%; opacity:.6; }
-.r3{ width:88%; height:88%; opacity:.35; }
 
-.pw-cells{
-  position:absolute; inset:0; display:grid;
-  grid-template-columns: repeat(16, 48px);
-  grid-template-rows: repeat(24, 48px);
-  gap:0;
-  padding:0; margin:0;
+/* =========================
+   Tablero cuadrado (principal)
+   ========================= */
+.canvas-wrap {
+  width: clamp(280px, 92vw, 680px);
+  aspect-ratio: 1 / 1;
+  margin: 8px auto 0;
+  display: grid;
+  place-items: center;
 }
-.cell{ box-sizing:border-box; }
-.cell.occupied{ background:rgba(255,45,45,.85); border:2px solid rgba(150,0,0,.9); }
-.cell.free{ background:transparent; cursor:pointer; }
-.cell.free:hover{ outline:3px solid rgba(255,255,255,.85); }
 
-.pw-footer{
-  position:absolute; left:0; right:0; bottom:18px;
-  display:flex; justify-content:center;
+.board {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(20, 1fr); /* si cambias el tamaño visual del grid, ajusta aquí */
+  grid-auto-rows: 1fr;
+  gap: 6px;
+  padding: 10px;
+  background: #0c1a2e;
+  border: 2px solid #071024;
+  border-radius: 16px;
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,.18);
+  overflow: hidden; /* evita overflow en móvil */
 }
-.pw-cancel{
-  background:#ef4444; color:#fff; border:none; border-radius:14px;
-  font-weight:900; letter-spacing:.6px; padding:14px 28px; cursor:pointer;
-  box-shadow:0 6px 0 #b91c1c;
+
+.board .cell {
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  transition: transform .05s ease;
 }
-.pw-cancel:active{ transform:translateY(2px); box-shadow:0 4px 0 #b91c1c; }
+.board .cell:hover { transform: scale(1.03); }
+
+/* =========================
+   Overlay / Modal de compra
+   ========================= */
+.purchase-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(3,10,20,.7);
+  display: grid;
+  place-items: center;
+  z-index: 999;
+}
+
+.purchase-panel {
+  width: min(92vw, 920px);
+  max-height: calc(100vh - 96px);
+  background: #0f213d;
+  border: 1px solid #1b2f56;
+  border-radius: 16px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.5);
+}
+
+.purchase-board-wrap {
+  width: min(90vw, 82vh);
+  height: min(90vw, 82vh);
+  margin: 0 auto;
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.purchase-board {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(20, 1fr);
+  grid-auto-rows: 1fr;
+  gap: 6px;
+  padding: 10px;
+  background: #0c1a2e;
+  border: 2px solid #071024;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.purchase-board .cell {
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+}
+
+.range-ring {
+  border: 2px solid rgba(255,255,255,0.16);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.purchase-actions { display: grid; place-items: center; }
+
+/* Móvil */
+@media (max-width: 420px) {
+  .board, .purchase-board { gap: 4px; padding: 8px; }
+  .board .cell, .purchase-board .cell { border-radius: 4px; }
+  .purchase-panel { padding: 12px; }
+}

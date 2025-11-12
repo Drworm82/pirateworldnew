@@ -2,14 +2,15 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 
-import "./index.css";               // <- estilos globales
+import "./index.css";
 import "./registerSW";
 
 import Splash from "./Splash";
 import SetupSupabase from "./pages/SetupSupabase.jsx";
 import UserDemo from "./pages/UserDemo.jsx";
 import TilesDemo from "./pages/TilesDemo.jsx";
-import DebugEnv from "./pages/DebugEnv.jsx";   // <- NUEVO
+import DebugEnv from "./pages/DebugEnv.jsx";
+import MyParcels from "./pages/MyParcels.jsx"; // ⬅️ NUEVO
 
 function useHashRoute() {
   const [route, setRoute] = useState(location.hash || "#/");
@@ -75,7 +76,7 @@ function App() {
         <a href="#/setup" className={route === "/setup" ? "active" : ""}>Setup Supabase</a>
         <a href="#/user" className={route === "/user" ? "active" : ""}>Demo usuario</a>
         <a href="#/tiles" className={route === "/tiles" ? "active" : ""}>Demo parcelas</a>
-        {/* Ruta Debug sin enlace visible para no contaminar UI */}
+        <a href="#/mine" className={route === "/mine" ? "active" : ""}>Mis parcelas</a> {/* ⬅️ NUEVO */}
       </nav>
     );
   }
@@ -100,7 +101,8 @@ function App() {
   else if (route === "/setup") page = <SetupSupabase />;
   else if (route === "/user") page = <UserDemo />;
   else if (route === "/tiles") page = <TilesDemo />;
-  else if (route === "/debug") page = <DebugEnv />;   // <- NUEVO
+  else if (route === "/mine") page = <MyParcels />; // ⬅️ NUEVO
+  else if (route === "/debug") page = <DebugEnv />;
   else page = <Home />;
 
   return (
