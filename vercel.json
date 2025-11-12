@@ -1,9 +1,14 @@
 {
-  "version": 2,
-  "builds": [
-    { "src": "vite.config.js", "use": "@vercel/node" }
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/" }
   ],
-  "routes": [
-    { "src": "/(.*)", "dest": "/index.html" }
+  "redirects": [],
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache" }
+      ]
+    }
   ]
 }

@@ -9,12 +9,23 @@ const SUPA_KEY =
   import.meta.env.VITE_SUPABASE_ANON_KEY_PROD ||
   import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!SUPA_URL || !SUPA_KEY) {
-  console.error("❌ Variables de entorno de Supabase no configuradas.", {
-    SUPA_URL,
-    SUPA_KEY: SUPA_KEY ? "(set)" : undefined,
-  });
-  throw new Error("Supabase env not set");
+// Crea el cliente solo si hay credenciales válidas
+export const supabase = (SUPA_URL && SUPA_KEY) ? createClient(SUPA_URL, SUPA_KEY) : null;
+
+export function getClient() {
+  if (!supabase) throw new Error("Supabase no configurado.");
+  return supabase;
 }
 
-export const supabase = createClient(SUPA_URL, SUPA_KEY);
+// Helpers opcionales
+export function isConfigured() {
+  return !!supabase;
+}
+
+// Guardar pares en localStorage para diagnóstico (no modifica process.env)
+export function saveRuntimeEnv(url, key) {
+  try {
+    if (url) localStorage.setItem("VITE_SUPABASE_URL", url);
+    if (key) localStorage.setItem("VITE_SUPABASE_ANON_KEY", key);
+  } catch {}
+}

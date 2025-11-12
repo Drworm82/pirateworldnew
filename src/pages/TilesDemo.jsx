@@ -1,242 +1,185 @@
 // src/pages/TilesDemo.jsx
-import { useEffect, useState } from "react";
-import { ensureUser, getUserState, cellsNear, buyCell, tilesNear } from "../lib/supaApi.js";
-
-const card = (extra = {}) => ({
-  background: "#0e1624",
-  padding: 12,
-  borderRadius: 12,
-  border: "1px solid #1f2937",
-  ...extra,
-});
-const row = (extra = {}) => ({ display: "flex", gap: 8, alignItems: "center", ...extra });
-const muted = { color: "#9aa6b2" };
-const DEFAULT_EMAIL = "worm_jim@hotmail.com";
-const PRICE = 100; // costo por celda
-
-async function getPosition() {
-  return new Promise((res, rej) => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) =>
-        res({
-          lat: +pos.coords.latitude.toFixed(6),
-          lng: +pos.coords.longitude.toFixed(6),
-        }),
-      (err) => rej(err),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-  });
-}
+import { useEffect, useMemo, useState } from "react";
+import { cellsNear, buyParcel, round4, getLastUserId } from "../lib/supaApi.js";
+import HoverHUD from "../components/HoverHUD.jsx";
+import ToastPurchase from "../components/ToastPurchase.jsx";
 
 export default function TilesDemo() {
-  const [email, setEmail] = useState(DEFAULT_EMAIL);
-  const [user, setUser] = useState(null);
-  const [lat, setLat] = useState(19.4276);
-  const [lng, setLng] = useState(-99.1382);
-  const [radius, setRadius] = useState(300);
-  const [limit, setLimit] = useState(120);
-  const [cells, setCells] = useState([]);
-  const [status, setStatus] = useState("Listo.");
-  const [busy, setBusy] = useState(false);
+  const userId = getLastUserId();
+  const [center, setCenter] = useState({ lat: 19.4326, lng: -99.1332 });
+  const [occupied, setOccupied] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [hover, setHover] = useState(null);
+  const [toast, setToast] = useState({ show: false, msg: "" });
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const { user: u } = await ensureUser(email);
-        const fresh = await getUserState({ email });
-        setUser({
-          id: fresh?.user_id ?? u.id,
-          email: fresh?.email ?? email,
-          soft_coins: fresh?.soft_coins ?? 0,
+  const GRID_SIZE = 20;     // 20x20 = 400 celdas
+  const STEP_LAT  = 0.0012; // ~133 m
+  const RADIUS_M  = 5000;   // 5 km
+
+  async function reload() {
+    setLoading(true);
+    try {
+      const data = await cellsNear({
+        x: center.lng,
+        y: center.lat,
+        radiusM: RADIUS_M,
+      });
+      setOccupied(Array.isArray(data) ? data : []);
+    } catch (err) {
+      alert("Error al cargar parcelas cercanas: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { reload(); }, [center.lat, center.lng]);
+
+  const occMap = useMemo(() => {
+    const m = new Map();
+    for (const r of occupied) {
+      m.set(`${round4(r.y)},${round4(r.x)}`, r);
+    }
+    return m;
+  }, [occupied]);
+
+  const gridCells = useMemo(() => {
+    const cells = [];
+    const mid = Math.floor(GRID_SIZE / 2);
+    for (let gy = -mid; gy < GRID_SIZE - mid; gy++) {
+      const stepLon = STEP_LAT / Math.max(0.2, Math.cos((center.lat * Math.PI) / 180));
+      for (let gx = -mid; gx < GRID_SIZE - mid; gx++) {
+        const lat = round4(center.lat + gy * STEP_LAT);
+        const lng = round4(center.lng + gx * stepLon);
+        const key = `${lat},${lng}`;
+        const occ = occMap.get(key);
+        let status = "free";
+        if (occ) status = occ.owner_id === userId ? "mine" : "taken";
+        cells.push({ id: key, lat, lng, status });
+      }
+    }
+    return cells;
+  }, [center, occMap, userId]);
+
+  async function onBuy(cell) {
+    if (!userId) return alert("Primero crea/carga un usuario en Demo usuario.");
+    if (cell.status !== "free") return;
+
+    if (!window.confirm(`¿Comprar por 100 doblones en:\nlat=${cell.lat}, lng=${cell.lng}?`)) return;
+
+    try {
+      const r = await buyParcel({ userId, cost: 100, x: cell.lng, y: cell.lat });
+      if (r?.ok) {
+        setToast({
+          show: true,
+          msg: `🏝 Nueva parcela en lat=${cell.lat}, lng=${cell.lng}`,
         });
-      } catch (e) {
-        console.error(e);
-        setStatus("Error al cargar usuario.");
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function refreshBalance(uid) {
-    const fresh = await getUserState({ userId: uid });
-    if (fresh) setUser((u) => ({ ...u, soft_coins: fresh.soft_coins }));
-  }
-
-  async function handleUseGPS() {
-    try {
-      setBusy(true);
-      const p = await getPosition();
-      setLat(p.lat);
-      setLng(p.lng);
-    } catch (e) {
-      alert("No se pudo leer GPS: " + (e?.message || e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleSearch() {
-    try {
-      setBusy(true);
-      setStatus("Buscando celdas…");
-      // Intento principal: cells_near
-      let list;
-      try {
-        const r = await cellsNear(lat, lng, radius, limit);
-        list = r.list ?? [];
-      } catch (err) {
-        // Fallback si la función no existe aún en el backend
-        if (err?.code === "PGRST202" || /cells_near/i.test(err?.message || "")) {
-          const r2 = await tilesNear(lat, lng, radius);
-          // Normaliza a forma de "cells" para no cambiar el render
-          list = (r2.list ?? []).map((t) => ({
-            cell_qx: t.qx ?? 0,
-            cell_qy: t.qy ?? 0,
-            x: t.x,
-            y: t.y,
-            tile_id: t.id,
-            owner_id: t.owner_id,
-            distance_m: t.distance_m,
-          }));
-          setStatus("Usando tiles_near (fallback).");
-        } else {
-          throw err;
-        }
-      }
-
-      setCells(list);
-      setStatus(`Celdas: ${list.length} encontradas.`);
-    } catch (e) {
-      console.error(e);
-      setStatus("Error: " + (e?.message || e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleBuy(c) {
-    if (!user?.id) return alert("Carga el usuario primero.");
-    try {
-      setBusy(true);
-      setStatus("Comprando…");
-      const res = await buyCell(user.id, c.cell_qx, c.cell_qy);
-      if (res?.ok) {
-        alert("✅ Parcela comprada");
-        await handleSearch(); // refresca (debe pasar a ocupado)
-        await refreshBalance(user.id);
+        await reload();
       } else {
-        alert("⚠️ " + (res?.error || "No se pudo comprar"));
+        alert("❌ Compra rechazada: " + (r?.error || "desconocido"));
       }
-    } catch (e) {
-      alert("⚠️ " + (e?.message || e));
-    } finally {
-      setBusy(false);
-      setStatus("Listo.");
+    } catch (err) {
+      alert("Error al comprar: " + err.message);
     }
   }
+
+  // Estilos inline (sin Tailwind)
+  const styles = {
+    legendDot: (color) => ({
+      display: "inline-block",
+      width: 12, height: 12, borderRadius: 4, backgroundColor: color,
+      marginRight: 6, verticalAlign: "middle"
+    }),
+    gridWrap: {
+      display: "grid",
+      gridTemplateColumns: `repeat(${GRID_SIZE}, 18px)`,
+      gap: "6px",
+      padding: "12px",
+      borderRadius: "12px",
+      background: "#071522",
+      boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)",
+      width: "fit-content"
+    },
+    cell: (status) => {
+      const color =
+        status === "free"  ? "#22c55e" : // verde
+        status === "mine"  ? "#38bdf8" : // azul
+                              "#52525b";  // gris
+      return {
+        width: 18,
+        height: 18,
+        borderRadius: 4,
+        backgroundColor: color,
+        border: "none",
+        cursor: status === "free" ? "pointer" : "default",
+      };
+    }
+  };
 
   return (
-    <div style={{ padding: 16, color: "#e6edf3" }}>
-      <h1>Demo parcelas (cells)</h1>
-      <p style={muted}>{status}</p>
+    <div style={{ padding: 24 }}>
+      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 16 }}>Mapa de parcelas</h1>
 
-      <div style={card({ marginTop: 12 })}>
-        <h3 style={{ margin: "4px 0" }}>Usuario</h3>
-        <div style={row()}>
-          <input value={email} onChange={(e) => setEmail(e.target.value)} style={{ flex: 1 }} />
+      <div style={{ marginBottom: 12 }}>
+        <button onClick={reload} disabled={loading} style={{ marginRight: 8 }}>
+          {loading ? "Cargando..." : "Recargar"}
+        </button>
+        <button onClick={() => setCenter({ lat: 19.4326, lng: -99.1332 })}>
+          Centrar CDMX
+        </button>
+      </div>
+
+      {/* Leyenda */}
+      <div style={{ fontSize: 14, marginBottom: 8, opacity: 0.85 }}>
+        <span style={{ marginRight: 16 }}>
+          <span style={styles.legendDot("#22c55e")} /> Libres
+        </span>
+        <span style={{ marginRight: 16 }}>
+          <span style={styles.legendDot("#38bdf8")} /> Tuyas
+        </span>
+        <span>
+          <span style={styles.legendDot("#52525b")} /> Ocupadas
+        </span>
+      </div>
+
+      {/* Grid */}
+      <div style={styles.gridWrap} onMouseLeave={() => setHover(null)}>
+        {gridCells.map((c) => (
           <button
-            onClick={async () => {
-              const { user: u } = await ensureUser(email.trim());
-              const fresh = await getUserState({ email: email.trim() });
-              setUser({
-                id: fresh?.user_id ?? u.id,
-                email: email.trim(),
-                soft_coins: fresh?.soft_coins ?? 0,
-              });
-            }}
-          >
-            Crear / Cargar
-          </button>
-        </div>
-        <pre
-          style={{
-            fontSize: 12,
-            background: "#0a0f18",
-            padding: 8,
-            borderRadius: 8,
-            marginTop: 8,
-          }}
-        >
-{JSON.stringify(user ?? { info: "(sin usuario)" }, null, 2)}
-        </pre>
+            key={c.id}
+            title={`lat=${c.lat}, lng=${c.lng}`}
+            onClick={() => onBuy(c)}
+            disabled={c.status !== "free"}
+            onMouseEnter={() =>
+              setHover({
+                x: c.lng,
+                y: c.lat,
+                state: c.status === "mine" ? "tuya" : c.status === "taken" ? "ocupada" : "libre",
+              })
+            }
+            onMouseLeave={() => setHover(null)}
+            style={styles.cell(c.status)}
+          />
+        ))}
       </div>
 
-      <div style={card({ marginTop: 12 })}>
-        <h3 style={{ margin: "4px 0" }}>Ubicación</h3>
-        <div style={row({ marginTop: 8 })}>
-          <button onClick={handleUseGPS} disabled={busy}>
-            Usar GPS
-          </button>
-          <input
-            type="number"
-            value={lat}
-            onChange={(e) => setLat(parseFloat(e.target.value) || 0)}
-            step="0.0001"
-            title="latitud"
-          />
-          <input
-            type="number"
-            value={lng}
-            onChange={(e) => setLng(parseFloat(e.target.value) || 0)}
-            step="0.0001"
-            title="longitud"
-          />
-          <input
-            type="number"
-            value={radius}
-            onChange={(e) => setRadius(parseInt(e.target.value) || 300)}
-            title="radio (m)"
-          />
-          <input
-            type="number"
-            value={limit}
-            onChange={(e) => setLimit(parseInt(e.target.value) || 120)}
-            title="límite resultados"
-          />
-          <button onClick={handleSearch} disabled={busy}>
-            Buscar celdas
-          </button>
-        </div>
-        <p className="muted" style={{ marginTop: 6 }}>
-          Precio por celda: <b>{PRICE}</b> doblones · Saldo: <b>{user?.soft_coins ?? 0}</b>
-        </p>
+      <div style={{ marginTop: 12, fontSize: 14, opacity: 0.85 }}>
+        Parcelas visibles: {gridCells.length} · Ocupadas cerca: {occupied.length}
       </div>
 
-      <div style={card({ marginTop: 12 })}>
-        <h3 style={{ margin: "4px 0" }}>Resultados ({cells.length})</h3>
-        <ol style={{ fontFamily: "ui-monospace,monospace", fontSize: 13 }}>
-          {cells.length === 0 && <li>(sin resultados)</li>}
-          {cells.map((c) => {
-            const free = !c.owner_id;
-            return (
-              <li key={`${c.cell_qx}:${c.cell_qy}`} style={{ margin: "6px 0" }}>
-                ({(c.x ?? 0).toFixed(5)}, {(c.y ?? 0).toFixed(5)}) · q=({c.cell_qx}, {c.cell_qy}) ·
-                dist: {(c.distance_m ?? 0).toFixed(1)} m ·
-                {free ? " 🟩 libre" : " 🟥 ocupado"}
-                {free && (
-                  <button
-                    style={{ marginLeft: 8 }}
-                    onClick={() => handleBuy(c)}
-                    disabled={busy || !user}
-                  >
-                    Comprar
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ol>
+      <div style={{ marginTop: 8, fontSize: 12, opacity: 0.6 }}>
+        (El grid muestra posibles celdas. Las ocupadas provienen de la BD y se “pintan” encima.
+        Haz click en una libre para comprar.)
       </div>
+
+      {/* HUD flotante */}
+      <HoverHUD hover={hover} />
+
+      {/* Toast compra */}
+      <ToastPurchase
+        show={toast.show}
+        message={toast.msg}
+        onClose={() => setToast({ show: false, msg: "" })}
+      />
     </div>
   );
 }

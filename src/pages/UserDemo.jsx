@@ -1,110 +1,158 @@
 // src/pages/UserDemo.jsx
-import React, { useState } from "react";
-import { ensureUser, getUserState, topUp } from "../lib/supaApi.js";
-
-const DEFAULT_EMAIL = "worm_jim@hotmail.com";
+import { useEffect, useState } from "react";
+import {
+  ensureUser,
+  getUserState,
+  getBalance,
+  creditAd,
+  buyParcel,
+  round4,
+  resetUserAndParcels, // si no lo usas, puedes quitar esta línea
+} from "../lib/supaApi.js";
+import ToastPurchase from "../components/ToastPurchase.jsx";
 
 export default function UserDemo() {
-  const [email, setEmail] = useState(DEFAULT_EMAIL);
+  const [email, setEmail] = useState("worm_jim@hotmail.com");
   const [user, setUser] = useState(null);
-  const [status, setStatus] = useState("Listo.");
-  const [busy, setBusy] = useState(false);
+  const [balance, setBalance] = useState(0);
+  const [loc, setLoc] = useState(null); // { lat, lng } o null
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState({ show: false, msg: "" });
 
-  async function load() {
+  useEffect(() => {
+    if (!("geolocation" in navigator)) return;
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setLoc({ lat, lng });
+      },
+      () => setLoc(null),
+      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 10_000 }
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }, []);
+
+  async function loadOrCreate() {
     try {
-      setBusy(true);
-      setStatus("Cargando usuario…");
-      const { user: u } = await ensureUser(email.trim());
-      const fresh = await getUserState({ email: email.trim() });
-      setUser({
-        id: fresh?.user_id ?? u.id,
-        email: email.trim(),
-        soft_coins: fresh?.soft_coins ?? 0,
-      });
-      setStatus("Usuario listo.");
-    } catch (e) {
-      setStatus("Error: " + (e?.message || e));
+      setLoading(true);
+      const { user: u } = await ensureUser(email);
+      setUser(u);
+      const b = await getBalance(u.id);
+      setBalance(b);
+    } catch (err) {
+      alert(`Error al crear/cargar usuario: ${err.message || err}`);
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
   }
 
-  async function doTopUp() {
-    if (!user?.id) return alert("Primero crea/carga el usuario.");
-    try {
-      setBusy(true);
-      setStatus("Acreditando +100 (debug) …");
-      const res = await topUp(user.id, 100, "debug_topup");
-      setUser((u) => ({ ...u, soft_coins: res.balance }));
-      setStatus("Crédito aplicado (+100).");
-    } catch (e) {
-      alert("Error: " + (e?.message || e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function refresh() {
+  async function refreshBalance() {
     if (!user?.id) return;
     try {
-      setBusy(true);
-      const fresh = await getUserState({ userId: user.id });
-      setUser((u) => ({ ...u, soft_coins: fresh.soft_coins }));
-      setStatus("Saldo actualizado.");
-    } catch (e) {
-      setStatus("Error al refrescar: " + (e?.message || e));
+      const b = await getBalance(user.id);
+      setBalance(b);
+      const u = await getUserState({ userId: user.id });
+      setUser(u);
+    } catch (err) {
+      alert(`No se pudo refrescar el saldo: ${err.message || err}`);
+    }
+  }
+
+  async function onAdClick() {
+    if (!user?.id) return alert("Primero crea/carga un usuario.");
+    try {
+      const { balance: b } = await creditAd(user.id);
+      setBalance(b);
+      const u = await getUserState({ userId: user.id });
+      setUser(u);
+    } catch (err) {
+      alert(`Error al acreditar anuncio: ${err.message || err}`);
+    }
+  }
+
+  async function onBuyHere() {
+    if (!user?.id) return alert("Primero crea/carga un usuario.");
+    if (!loc) return alert("Ubicación no disponible (sin GPS).");
+
+    const lat = round4(loc.lat);
+    const lng = round4(loc.lng);
+    const ok = window.confirm(`¿Comprar por 100 doblones en:\nlat=${lat}, lng=${lng}?`);
+    if (!ok) return;
+
+    try {
+      const res = await buyParcel({ userId: user.id, cost: 100, x: lng, y: lat });
+      if (res?.ok) {
+        setToast({
+          show: true,
+          msg: `🏝 Nueva parcela en lat=${lat}, lng=${lng}`,
+        });
+      } else {
+        const reason = res?.error || "rechazada";
+        alert(`Compra rechazada: ${reason}`);
+      }
+    } catch (err) {
+      alert(`Error al comprar: ${err.message || err}`);
     } finally {
-      setBusy(false);
+      await refreshBalance();
+    }
+  }
+
+  async function onResetUser() {
+    if (!user?.id) return alert("Primero crea/carga un usuario.");
+    const ok = window.confirm("¿Seguro que deseas reiniciar este usuario y borrar todas sus parcelas?");
+    if (!ok) return;
+    try {
+      await resetUserAndParcels(user.id);
+      alert("✅ Usuario y parcelas reiniciados.");
+      window.location.reload();
+    } catch (err) {
+      alert("Error al reiniciar: " + err.message);
     }
   }
 
   return (
-    <>
-      <section className="card">
-        <h3>Email de prueba</h3>
-        <div className="row">
-          <input
-            className="input"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="tu@email.com"
-          />
-          <button className="btn" onClick={load} disabled={busy}>
-            Crear / Cargar
-          </button>
-        </div>
-      </section>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Demo usuario</h1>
 
-      <section className="grid two">
-        <div className="card">
-          <h3>Usuario</h3>
-          <pre className="pre">
-{JSON.stringify(user ?? { info: "(sin usuario)" }, null, 2)}
-          </pre>
-        </div>
-
-        <div className="card">
-          <h3>Saldo</h3>
-          <div className="big">{user?.soft_coins ?? 0}</div>
-          <p className="muted">100 doblones = 1 parcela</p>
-          <div className="row">
-            <button className="btn" onClick={doTopUp} disabled={busy || !user}>
-              Añadir +100 (debug)
-            </button>
-            <button className="btn ghost" onClick={refresh} disabled={!user || busy}>
-              Refrescar saldo
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <p className="muted">{status}</p>
-
-      <div className="row" style={{ marginTop: 12 }}>
-        <a className="btn ghost" href="#/tiles">
-          → Ir a Demo parcelas (tiles)
-        </a>
+      <div className="mb-4">
+        <div className="mb-2">Email de prueba</div>
+        <input value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: 280 }} />
+        <button className="ml-2" onClick={loadOrCreate} disabled={loading}>
+          {loading ? "Cargando..." : "Crear / Cargar"}
+        </button>
       </div>
-    </>
+
+      <section className="mb-6">
+        <h2 className="text-xl font-semibold mb-2">Usuario</h2>
+        <pre className="bg-[#0d1c2a] p-3 rounded">
+{JSON.stringify(user ?? { info: "(sin usuario)" }, null, 2)}
+        </pre>
+      </section>
+
+      <section className="mb-6">
+        <h2 className="text-xl font-semibold mb-2">Saldo</h2>
+        <div className="text-2xl font-bold mb-2">{balance}</div>
+        <div className="mb-2">1 anuncio = 1 doblón · 100 doblones = 1 parcela</div>
+        <button onClick={onAdClick} className="mr-2">Ver anuncio (+1)</button>
+        <button onClick={refreshBalance} className="mr-2">Refrescar saldo</button>
+        <button onClick={onResetUser}>Reiniciar usuario 🗑️</button>
+      </section>
+
+      <section>
+        <h2 className="text-xl font-semibold mb-2">Compra de parcela (GPS)</h2>
+        <p className="mb-2">Compra una parcela en tu ubicación actual. El backend redondea a 4dp.</p>
+        <button onClick={onBuyHere}>Comprar parcela (−100)</button>
+        <div className="mt-2 text-sm opacity-80">
+          Ubicación detectada: {loc ? `lat=${round4(loc.lat)} · lng=${round4(loc.lng)}` : "(sin GPS)"}
+        </div>
+      </section>
+
+      <ToastPurchase
+        show={toast.show}
+        message={toast.msg}
+        onClose={() => setToast({ show: false, msg: "" })}
+      />
+    </div>
   );
 }
