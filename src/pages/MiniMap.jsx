@@ -1,19 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+// src/pages/MiniMap.jsx
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
+import "leaflet/dist/leaflet.css"; // ✅ necesario para que se vean los tiles en Vercel
 
 // Fix de íconos (Vite)
 import marker2x from "leaflet/dist/images/marker-icon-2x.png";
 import marker1x from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: marker2x,
-  iconUrl: marker1x,
-  shadowUrl: markerShadow,
-});
+L.Icon.Default.mergeOptions({ iconRetinaUrl: marker2x, iconUrl: marker1x, shadowUrl: markerShadow });
 
+// Supabase utils
 import { getLastUserId, listMyParcels } from "../lib/supaApi.js";
 
+// 📍 Hook para centrar mapa en tus parcelas
 function FitBounds({ points }) {
   const map = useMap();
   useEffect(() => {
@@ -24,12 +24,21 @@ function FitBounds({ points }) {
   return null;
 }
 
-function MiniMap() {
+// 📍 Hook para forzar resize de Leaflet (cuando el contenedor cambia de tamaño)
+function MapSizeFixer() {
+  const map = useMap();
+  useEffect(() => {
+    setTimeout(() => map.invalidateSize(), 500);
+  }, [map]);
+  return null;
+}
+
+export default function MiniMap() {
   const userId = getLastUserId();
   const [parcels, setParcels] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Centro por defecto: CDMX
+  // CDMX por defecto
   const defaultCenter = [19.4326, -99.1332];
 
   useEffect(() => {
@@ -38,17 +47,21 @@ function MiniMap() {
       setLoading(true);
       try {
         const rows = await listMyParcels(userId);
-        setParcels(rows || []);
+        setParcels(rows);
       } catch (e) {
-        alert("No se pudieron cargar tus parcelas: " + (e?.message || e));
+        alert("No se pudieron cargar tus parcelas: " + (e.message || e));
       } finally {
         setLoading(false);
       }
     })();
   }, [userId]);
 
+  // Filtra coordenadas válidas
   const points = useMemo(
-    () => parcels.map((p) => ({ x: Number(p.x), y: Number(p.y), id: p.id })),
+    () =>
+      parcels
+        .filter((p) => p.x && p.y && !isNaN(p.x) && !isNaN(p.y))
+        .map((p) => ({ x: Number(p.x), y: Number(p.y), id: p.id })),
     [parcels]
   );
 
@@ -60,7 +73,6 @@ function MiniMap() {
       {!userId && (
         <div>Primero crea/carga un usuario en “Demo usuario”.</div>
       )}
-
       <div
         style={{
           height: "70vh",
@@ -69,12 +81,15 @@ function MiniMap() {
           boxShadow: "0 0 0 1px rgba(255,255,255,.08)",
         }}
       >
-        <MapContainer center={defaultCenter} zoom={12} style={{ height: "100%", width: "100%" }}>
+        <MapContainer
+          center={defaultCenter}
+          zoom={12}
+          style={{ height: "100%", width: "100%" }}
+        >
           <TileLayer
-            attribution="&copy; OpenStreetMap"
+            attribution='&copy; OpenStreetMap'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-
           {points.map((p) => (
             <Marker key={p.id} position={[p.y, p.x]}>
               <Popup>
@@ -86,16 +101,13 @@ function MiniMap() {
               </Popup>
             </Marker>
           ))}
-
-          {points.length > 0 ? <FitBounds points={points} /> : null}
+          {points.length > 0 && <FitBounds points={points} />}
+          <MapSizeFixer /> {/* ✅ Recalcula tamaño */}
         </MapContainer>
       </div>
-
       <div style={{ marginTop: 8, opacity: 0.8, fontSize: 14 }}>
         {loading ? "Cargando tus parcelas..." : `Parcelas: ${points.length}`}
       </div>
     </div>
   );
 }
-
-export default MiniMap;
