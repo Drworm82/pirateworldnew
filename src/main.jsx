@@ -1,128 +1,78 @@
-// src/main.jsx
-import React, { useEffect, useRef, useState } from "react";
-import { createRoot } from "react-dom/client";
+// src/pages/MiniMap.jsx
+import { useEffect, useMemo, useRef, useState } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import L from "leaflet";
 
-import "./index.css";
-import "./registerSW";
+// Fix de íconos (Vite)
+import marker2x from "leaflet/dist/images/marker-icon-2x.png";
+import marker1x from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
+L.Icon.Default.mergeOptions({ iconRetinaUrl: marker2x, iconUrl: marker1x, shadowUrl: markerShadow });
 
-import Splash from "./Splash";
-import SetupSupabase from "./pages/SetupSupabase.jsx";
-import UserDemo from "./pages/UserDemo.jsx";
-import TilesDemo from "./pages/TilesDemo.jsx";
-import DebugEnv from "./pages/DebugEnv.jsx";
-import MyParcels from "./pages/MyParcels.jsx"; // ⬅️ NUEVO
+import { getLastUserId, listMyParcels } from "../lib/supaApi.js";
 
-function useHashRoute() {
-  const [route, setRoute] = useState(location.hash || "#/");
+function FitBounds({ points }) {
+  const map = useMap();
   useEffect(() => {
-    const onHash = () => setRoute(location.hash || "#/");
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
-  }, []);
-  return route.replace(/^#/, "");
+    if (!points?.length) return;
+    const bounds = L.latLngBounds(points.map(p => [p.y, p.x]));
+    map.fitBounds(bounds.pad(0.2), { animate: true });
+  }, [points, map]);
+  return null;
 }
 
-function App() {
-  const route = useHashRoute();
-  const [showSplash, setShowSplash] = useState(true);
+export default function MiniMap() {
+  const userId = getLastUserId();
+  const [parcels, setParcels] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  // --- PWA install UX ---
-  const deferred = useRef(null);
-  const [canInstall, setCanInstall] = useState(false);
-  const [installed, setInstalled] = useState(
-    window.matchMedia?.("(display-mode: standalone)")?.matches ||
-      window.navigator.standalone === true ||
-      localStorage.getItem("pw_installed") === "1"
-  );
-  const isStandalone =
-    window.matchMedia?.("(display-mode: standalone)")?.matches ||
-    window.navigator.standalone === true;
+  // CDMX por defecto
+  const defaultCenter = [19.4326, -99.1332];
 
   useEffect(() => {
-    const onBIP = (e) => {
-      e.preventDefault();
-      deferred.current = e;
-      setCanInstall(true);
-    };
-    const onInstalled = () => {
-      localStorage.setItem("pw_installed", "1");
-      setInstalled(true);
-      setCanInstall(false);
-    };
-    window.addEventListener("beforeinstallprompt", onBIP);
-    window.addEventListener("appinstalled", onInstalled);
-    return () => {
-      window.removeEventListener("beforeinstallprompt", onBIP);
-      window.removeEventListener("appinstalled", onInstalled);
-    };
-  }, []);
+    if (!userId) return;
+    (async () => {
+      setLoading(true);
+      try {
+        const rows = await listMyParcels(userId);
+        setParcels(rows);
+      } catch (e) {
+        alert("No se pudieron cargar tus parcelas: " + (e.message || e));
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [userId]);
 
-  async function handleInstall() {
-    if (!deferred.current) {
-      alert("Si no aparece el diálogo: menú ⋮ → Instalar aplicación.");
-      return;
-    }
-    deferred.current.prompt();
-    const { outcome } = await deferred.current.userChoice;
-    deferred.current = null;
-    setCanInstall(false);
-    if (outcome === "accepted") setInstalled(true);
-  }
-
-  function Nav() {
-    return (
-      <nav className="nav">
-        <a href="#/" className={route === "/" ? "active" : ""}>Inicio</a>
-        <a href="#/setup" className={route === "/setup" ? "active" : ""}>Setup Supabase</a>
-        <a href="#/user" className={route === "/user" ? "active" : ""}>Demo usuario</a>
-        <a href="#/tiles" className={route === "/tiles" ? "active" : ""}>Demo parcelas</a>
-        <a href="#/mine" className={route === "/mine" ? "active" : ""}>Mis parcelas</a> {/* ⬅️ NUEVO */}
-      </nav>
-    );
-  }
-
-  function Home() {
-    return (
-      <section className="hero">
-        <h1>PirateWorld</h1>
-        <p>Espéralo pronto…</p>
-        {!isStandalone && canInstall && (
-          <button className="btn" onClick={handleInstall}>⤓ Instalar aplicación</button>
-        )}
-        {!isStandalone && installed && (
-          <div className="hint ok">✅ Aplicación instalada correctamente.</div>
-        )}
-      </section>
-    );
-  }
-
-  let page = null;
-  if (route === "/") page = <Home />;
-  else if (route === "/setup") page = <SetupSupabase />;
-  else if (route === "/user") page = <UserDemo />;
-  else if (route === "/tiles") page = <TilesDemo />;
-  else if (route === "/mine") page = <MyParcels />; // ⬅️ NUEVO
-  else if (route === "/debug") page = <DebugEnv />;
-  else page = <Home />;
+  const points = useMemo(() => parcels.map(p => ({ x: Number(p.x), y: Number(p.y), id: p.id })), [parcels]);
 
   return (
-    <>
-      {showSplash && <Splash onDone={() => setShowSplash(false)} />}
-
-      <main className={`app-shell ${showSplash ? "blurred" : ""}`}>
-        {/* fondo tipo mapa */}
-        <div className="bg-grid">
-          <div className="bg-wave a" />
-          <div className="bg-wave b" />
-        </div>
-
-        <div className="container">
-          <Nav />
-          {page}
-        </div>
-      </main>
-    </>
+    <div style={{ padding: 16 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>Mapa (tus parcelas)</h1>
+      {!userId && <div>Primero crea/carga un usuario en “Demo usuario”.</div>}
+      <div style={{ height: "70vh", borderRadius: 12, overflow: "hidden", boxShadow: "0 0 0 1px rgba(255,255,255,.08)" }}>
+        <MapContainer center={defaultCenter} zoom={12} style={{ height: "100%", width: "100%" }}>
+          <TileLayer
+            attribution='&copy; OpenStreetMap'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          {points.map(p => (
+            <Marker key={p.id} position={[p.y, p.x]}>
+              <Popup>
+                <div style={{ fontFamily: "monospace" }}>
+                  <div><b>id:</b> {p.id}</div>
+                  <div><b>lat:</b> {p.y}</div>
+                  <div><b>lng:</b> {p.x}</div>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+          {points.length > 0 ? <FitBounds points={points} /> : null}
+        </MapContainer>
+      </div>
+      <div style={{ marginTop: 8, opacity: .8, fontSize: 14 }}>
+        {loading ? "Cargando tus parcelas..." : `Parcelas: ${points.length}`}
+      </div>
+    </div>
   );
 }
-
-createRoot(document.getElementById("root")).render(<App />);
