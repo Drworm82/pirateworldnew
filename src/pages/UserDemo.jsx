@@ -1,4 +1,4 @@
-// ...imports iguales
+// src/pages/UserDemo.jsx
 import { useEffect, useState } from "react";
 import {
   ensureUser,
@@ -17,7 +17,24 @@ export default function UserDemo() {
   const [balance, setBalance] = useState(0);
   const [loc, setLoc] = useState(null); // { lat, lng } o null
   const [loading, setLoading] = useState(false);
+
+  // Toast de compra
   const [toast, setToast] = useState({ show: false, msg: "" });
+
+  // FE-12: burbujas de cambio de saldo (+1 / –100)
+  const [bumps, setBumps] = useState([]); // [{ id, text, kind: "plus"|"minus" }]
+
+  function showBump(text, kind = "plus") {
+    const id =
+      (typeof crypto !== "undefined" && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : String(Math.random());
+    setBumps((prev) => [...prev, { id, text, kind }]);
+    // La animación CSS dura ~900ms; dejamos 1000ms para limpiar
+    setTimeout(() => {
+      setBumps((prev) => prev.filter((b) => b.id !== id));
+    }, 1000);
+  }
 
   // ---------- GPS robusto ----------
   useEffect(() => {
@@ -29,14 +46,14 @@ export default function UserDemo() {
       setLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
     };
     const onErr = () => {
-      // No ponemos alert para no ser invasivos; dejamos loc en null
+      // Sin alert para no molestar; dejamos loc en null
       setLoc(null);
     };
 
-    // 1) un fix “rápido” para tomar la primera lectura
+    // Primer fix rápido
     navigator.geolocation.getCurrentPosition(onOK, onErr, opts);
 
-    // 2) seguimiento continuo
+    // Seguimiento
     const id = navigator.geolocation.watchPosition(onOK, onErr, opts);
     return () => navigator.geolocation.clearWatch(id);
   }, []);
@@ -75,6 +92,8 @@ export default function UserDemo() {
       setBalance(b);
       const u = await getUserState({ userId: user.id });
       setUser(u);
+      // FE-12: pop visual +1
+      showBump("+1", "plus");
     } catch (err) {
       alert(`Error al acreditar anuncio: ${err.message || err}`);
     }
@@ -92,9 +111,16 @@ export default function UserDemo() {
     try {
       const res = await buyParcel({ userId: user.id, cost: 100, x: lng, y: lat });
       if (res?.ok) {
-        setToast({ show: true, msg: `🏝 Nueva parcela en lat=${lat}, lng=${lng}` });
+        // FE-10: toast
+        setToast({
+          show: true,
+          msg: `🏝 Nueva parcela en lat=${lat}, lng=${lng}`,
+        });
+        // FE-12: pop visual –100
+        showBump("–100", "minus");
       } else {
-        alert(`Compra rechazada: ${res?.error || "rechazada"}`);
+        const reason = res?.error || "rechazada";
+        alert(`Compra rechazada: ${reason}`);
       }
     } catch (err) {
       alert(`Error al comprar: ${err.message || err}`);
@@ -116,7 +142,7 @@ export default function UserDemo() {
     }
   }
 
-  // 👉 Botón auxiliar para tests en desktop/preview
+  // Auxiliar: simular GPS CDMX (útil en desktop o si no da permiso)
   function simulateCDMX() {
     setLoc({ lat: 19.4326, lng: -99.1332 });
     alert("📍 Ubicación simulada: CDMX.");
@@ -128,7 +154,11 @@ export default function UserDemo() {
 
       <div className="mb-4">
         <div className="mb-2">Email de prueba</div>
-        <input value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: 280 }} />
+        <input
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={{ width: 280 }}
+        />
         <button className="ml-2" onClick={loadOrCreate} disabled={loading}>
           {loading ? "Cargando..." : "Crear / Cargar"}
         </button>
@@ -156,10 +186,19 @@ export default function UserDemo() {
         <button onClick={onBuyHere}>Comprar parcela (−100)</button>
         <button onClick={simulateCDMX} className="ml-2">Simular GPS (CDMX)</button>
         <div className="mt-2 text-sm opacity-80">
-          Ubicación detectada: {loc ? `lat=${round4(loc.lat)} · lng=${round4(loc.lng)}` : "(sin GPS)"}
+          Ubicación detectada:{" "}
+          {loc ? `lat=${round4(loc.lat)} · lng=${round4(loc.lng)}` : "(sin GPS)"}
         </div>
       </section>
 
+      {/* FE-12: burbujas de cambio de saldo */}
+      {bumps.map((b) => (
+        <div key={b.id} className={`balance-bubble ${b.kind}`}>
+          {b.text} doblón{b.text === "+1" ? "" : "es"}
+        </div>
+      ))}
+
+      {/* FE-10: toast compra */}
       <ToastPurchase
         show={toast.show}
         message={toast.msg}

@@ -51,6 +51,10 @@ nav.nav a.active { background: #1d2c4d; color: #fff; }
 .muted { color: #b5c4e3; opacity: .8; }
 .big { font-size: 40px; font-weight: 800; line-height: 1; }
 
+/* Pequeñas utilidades para espaciado usadas en JSX */
+.mr-2 { margin-right: 8px; }
+.ml-2 { margin-left: 8px; }
+
 /* Cards */
 .card {
   background: #0f213d;
@@ -64,37 +68,70 @@ nav.nav a.active { background: #1d2c4d; color: #fff; }
 
 /* Inputs y botones */
 .input {
-  background: #0b1731;
-  border: 1px solid #213a70;
-  color: #e6eefc;
-  padding: 10px 12px;
+  background: #0e1b33;
+  border: 1px solid #25458f;
+  color: #eaf3ff;
+  padding: 10px 14px;
   border-radius: 10px;
   min-width: 260px;
   outline: none;
+  transition: border-color .2s, box-shadow .2s;
 }
-.input:focus { border-color: #3b82f6; }
+.input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.25);
+}
 
-.btn {
-  background: #2563eb;
-  border: 1px solid #1e4fc2;
+/* Base button reset + estilo moderno por defecto */
+button {
+  font: inherit;
+  appearance: none;
+  background: linear-gradient(145deg, #2563eb, #1d4ed8);
+  border: 1px solid #1e40af;
   color: #fff;
-  padding: 9px 12px;
-  border-radius: 10px;
+  padding: 10px 16px;
+  border-radius: 12px;
   cursor: pointer;
   font-weight: 700;
-  letter-spacing: .2px;
+  letter-spacing: 0.3px;
+  box-shadow: 0 4px 14px rgba(37,99,235,0.3);
+  transition: transform .12s ease, box-shadow .15s ease, filter .15s ease;
 }
-.btn:hover { filter: brightness(1.05); }
-.btn:disabled { opacity: .6; cursor: not-allowed; }
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(37,99,235,0.45);
+  filter: brightness(1.08);
+}
+button:active {
+  transform: translateY(0);
+  filter: brightness(0.95);
+}
+button:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
 
+/* Variantes opcionales si usas className="btn ..." */
+.btn { }
 .btn.ghost {
-  background: transparent;
-  color: #c1d3ff;
-  border: 1px solid #2a437a;
+  background: rgba(255,255,255,0.05);
+  color: #cdd9ff;
+  border: 1px solid #30477a;
+  box-shadow: none;
+}
+.btn.ghost:hover {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
 }
 .btn.danger {
-  background: #e11d48;
-  border-color: #be123c;
+  background: linear-gradient(145deg, #e11d48, #be123c);
+  border: 1px solid #7f0a26;
+  box-shadow: 0 4px 14px rgba(225,29,72,0.35);
+}
+.btn.danger:hover {
+  box-shadow: 0 6px 18px rgba(225,29,72,0.5);
+  filter: brightness(1.08);
 }
 
 .pre {
@@ -255,3 +292,30 @@ nav.nav a.active { background: #1d2c4d; color: #fff; }
 .rings .r1 { width:70%; height:70%; }
 .rings .r2 { width:52%; height:52%; }
 .rings .r3 { width:35%; height:35%; }
+
+/* ---- FE-12: burbujas de cambio de saldo ---- */
+.balance-bubble {
+  position: fixed;
+  left: 16px;
+  top: 16px;
+  z-index: 60;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  background: rgba(0,0,0,0.35);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: #e2ffe2;
+  border: 1px solid rgba(255,255,255,.12);
+  opacity: 0;
+  transform: translateY(0) scale(0.9);
+  animation: balance-pop 900ms ease-out forwards;
+}
+.balance-bubble.minus { color: #ffd9d9; }
+
+@keyframes balance-pop {
+  0%   { opacity: 0; transform: translateY(0)    scale(0.9); }
+  20%  { opacity: 1; transform: translateY(-8px) scale(1.00); }
+  80%  { opacity: 1; transform: translateY(-24px) scale(1.00); }
+  100% { opacity: 0; transform: translateY(-40px) scale(0.98); }
+}
