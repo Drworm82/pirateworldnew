@@ -1,4 +1,4 @@
-// src/pages/UserDemo.jsx
+// ...imports iguales
 import { useEffect, useState } from "react";
 import {
   ensureUser,
@@ -7,38 +7,9 @@ import {
   creditAd,
   buyParcel,
   round4,
-  resetUserAndParcels, // si no lo usas, puedes quitar esta línea
+  resetUserAndParcels,
 } from "../lib/supaApi.js";
 import ToastPurchase from "../components/ToastPurchase.jsx";
-import confetti from "canvas-confetti";
-
-/* ---------- Mini overlay de celebración (check con animación) ---------- */
-function CelebrationOverlay() {
-  return (
-    <>
-      <style>{`
-        @keyframes popSuccess {
-          0%   { transform: scale(.6); opacity: 0; }
-          30%  { transform: scale(1.1); opacity: 1; }
-          60%  { transform: scale(1.0); opacity: 1; }
-          100% { transform: scale(.95); opacity: 0; }
-        }
-      `}</style>
-      <div className="fixed inset-0 pointer-events-none flex items-center justify-center z-50">
-        <div
-          className="rounded-full border border-green-400/60 bg-green-500/20 backdrop-blur-sm"
-          style={{
-            padding: 24,
-            animation: "popSuccess 1.2s ease-out forwards",
-            boxShadow: "0 0 0 2px rgba(34,197,94,.35), 0 10px 40px rgba(34,197,94,.25)",
-          }}
-        >
-          <span style={{ fontSize: 56, lineHeight: 1 }}>✅</span>
-        </div>
-      </div>
-    </>
-  );
-}
 
 export default function UserDemo() {
   const [email, setEmail] = useState("worm_jim@hotmail.com");
@@ -47,46 +18,29 @@ export default function UserDemo() {
   const [loc, setLoc] = useState(null); // { lat, lng } o null
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ show: false, msg: "" });
-  const [showCelebration, setShowCelebration] = useState(false);
 
-  /* --------------------------- Localización (GPS) --------------------------- */
+  // ---------- GPS robusto ----------
   useEffect(() => {
     if (!("geolocation" in navigator)) return;
-    const id = navigator.geolocation.watchPosition(
-      (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        setLoc({ lat, lng });
-      },
-      () => setLoc(null),
-      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 10_000 }
-    );
+
+    const opts = { enableHighAccuracy: true, maximumAge: 30_000, timeout: 15_000 };
+
+    const onOK = (pos) => {
+      setLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+    };
+    const onErr = () => {
+      // No ponemos alert para no ser invasivos; dejamos loc en null
+      setLoc(null);
+    };
+
+    // 1) un fix “rápido” para tomar la primera lectura
+    navigator.geolocation.getCurrentPosition(onOK, onErr, opts);
+
+    // 2) seguimiento continuo
+    const id = navigator.geolocation.watchPosition(onOK, onErr, opts);
     return () => navigator.geolocation.clearWatch(id);
   }, []);
-
-  /* ------------------------------- Helpers -------------------------------- */
-  function fireConfetti() {
-    // ráfaga breve y ligera (amigable con móvil)
-    const duration = 900;
-    const end = Date.now() + duration;
-
-    const make = (originX) =>
-      confetti({
-        particleCount: 28,
-        startVelocity: 40,
-        spread: 70,
-        ticks: 180,
-        origin: { x: originX, y: 0.6 },
-        scalar: 0.9,
-      });
-
-    const frame = () => {
-      make(0.2);
-      make(0.8);
-      if (Date.now() < end) requestAnimationFrame(frame);
-    };
-    frame();
-  }
+  // ---------- /GPS ----------
 
   async function loadOrCreate() {
     try {
@@ -138,16 +92,9 @@ export default function UserDemo() {
     try {
       const res = await buyParcel({ userId: user.id, cost: 100, x: lng, y: lat });
       if (res?.ok) {
-        // Toast + confetti + overlay animado
         setToast({ show: true, msg: `🏝 Nueva parcela en lat=${lat}, lng=${lng}` });
-        setShowCelebration(true);
-        fireConfetti();
-
-        // apaga el overlay en ~1.2 s
-        setTimeout(() => setShowCelebration(false), 1200);
       } else {
-        const reason = res?.error || "rechazada";
-        alert(`Compra rechazada: ${reason}`);
+        alert(`Compra rechazada: ${res?.error || "rechazada"}`);
       }
     } catch (err) {
       alert(`Error al comprar: ${err.message || err}`);
@@ -169,7 +116,12 @@ export default function UserDemo() {
     }
   }
 
-  /* -------------------------------- Render -------------------------------- */
+  // 👉 Botón auxiliar para tests en desktop/preview
+  function simulateCDMX() {
+    setLoc({ lat: 19.4326, lng: -99.1332 });
+    alert("📍 Ubicación simulada: CDMX.");
+  }
+
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Demo usuario</h1>
@@ -202,6 +154,7 @@ export default function UserDemo() {
         <h2 className="text-xl font-semibold mb-2">Compra de parcela (GPS)</h2>
         <p className="mb-2">Compra una parcela en tu ubicación actual. El backend redondea a 4dp.</p>
         <button onClick={onBuyHere}>Comprar parcela (−100)</button>
+        <button onClick={simulateCDMX} className="ml-2">Simular GPS (CDMX)</button>
         <div className="mt-2 text-sm opacity-80">
           Ubicación detectada: {loc ? `lat=${round4(loc.lat)} · lng=${round4(loc.lng)}` : "(sin GPS)"}
         </div>
@@ -212,9 +165,6 @@ export default function UserDemo() {
         message={toast.msg}
         onClose={() => setToast({ show: false, msg: "" })}
       />
-
-      {/* Overlay de animación de éxito */}
-      {showCelebration && <CelebrationOverlay />}
     </div>
   );
 }
