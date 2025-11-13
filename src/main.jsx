@@ -10,7 +10,8 @@ import SetupSupabase from "./pages/SetupSupabase.jsx";
 import UserDemo from "./pages/UserDemo.jsx";
 import TilesDemo from "./pages/TilesDemo.jsx";
 import DebugEnv from "./pages/DebugEnv.jsx";
-import MyParcels from "./pages/MyParcels.jsx"; // ⬅️ NUEVO
+import MyParcels from "./pages/MyParcels.jsx";
+import MiniMap from "./pages/MiniMap.jsx"; // ✅ NUEVO
 
 function useHashRoute() {
   const [route, setRoute] = useState(location.hash || "#/");
@@ -76,7 +77,8 @@ function App() {
         <a href="#/setup" className={route === "/setup" ? "active" : ""}>Setup Supabase</a>
         <a href="#/user" className={route === "/user" ? "active" : ""}>Demo usuario</a>
         <a href="#/tiles" className={route === "/tiles" ? "active" : ""}>Demo parcelas</a>
-        <a href="#/mine" className={route === "/mine" ? "active" : ""}>Mis parcelas</a> {/* ⬅️ NUEVO */}
+        <a href="#/mine" className={route === "/mine" ? "active" : ""}>Mis parcelas</a>
+        <a href="#/map" className={route === "/map" ? "active" : ""}>Mapa</a> {/* ✅ NUEVO */}
       </nav>
     );
   }
@@ -101,7 +103,8 @@ function App() {
   else if (route === "/setup") page = <SetupSupabase />;
   else if (route === "/user") page = <UserDemo />;
   else if (route === "/tiles") page = <TilesDemo />;
-  else if (route === "/mine") page = <MyParcels />; // ⬅️ NUEVO
+  else if (route === "/mine") page = <MyParcels />;
+  else if (route === "/map") page = <MiniMap />; // ✅ NUEVO
   else if (route === "/debug") page = <DebugEnv />;
   else page = <Home />;
 
@@ -110,7 +113,6 @@ function App() {
       {showSplash && <Splash onDone={() => setShowSplash(false)} />}
 
       <main className={`app-shell ${showSplash ? "blurred" : ""}`}>
-        {/* fondo tipo mapa */}
         <div className="bg-grid">
           <div className="bg-wave a" />
           <div className="bg-wave b" />
