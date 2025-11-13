@@ -10,6 +10,36 @@ import {
   resetUserAndParcels,
 } from "../lib/supaApi.js";
 import ToastPurchase from "../components/ToastPurchase.jsx";
+import confetti from "canvas-confetti";
+
+/* ---------- Mini overlay de celebración (check con animación) ---------- */
+function CelebrationOverlay() {
+  return (
+    <>
+      <style>{`
+        @keyframes popSuccess {
+          0%   { transform: scale(.6); opacity: 0; }
+          30%  { transform: scale(1.1); opacity: 1; }
+          60%  { transform: scale(1.0); opacity: 1; }
+          100% { transform: scale(.95); opacity: 0; }
+        }
+      `}</style>
+      <div className="fixed inset-0 pointer-events-none flex items-center justify-center z-50">
+        <div
+          className="rounded-full border border-green-400/60 bg-green-500/20 backdrop-blur-sm"
+          style={{
+            padding: 24,
+            animation: "popSuccess 1.2s ease-out forwards",
+            boxShadow:
+              "0 0 0 2px rgba(34,197,94,.35), 0 10px 40px rgba(34,197,94,.25)",
+          }}
+        >
+          <span style={{ fontSize: 56, lineHeight: 1 }}>✅</span>
+        </div>
+      </div>
+    </>
+  );
+}
 
 export default function UserDemo() {
   const [email, setEmail] = useState("worm_jim@hotmail.com");
@@ -17,47 +47,56 @@ export default function UserDemo() {
   const [balance, setBalance] = useState(0);
   const [loc, setLoc] = useState(null); // { lat, lng } o null
   const [loading, setLoading] = useState(false);
-
-  // Toast de compra
   const [toast, setToast] = useState({ show: false, msg: "" });
-
-  // FE-12: burbujas de cambio de saldo (+1 / –100)
-  const [bumps, setBumps] = useState([]); // [{ id, text, kind: "plus"|"minus" }]
-
-  function showBump(text, kind = "plus") {
-    const id =
-      (typeof crypto !== "undefined" && crypto.randomUUID)
-        ? crypto.randomUUID()
-        : String(Math.random());
-    setBumps((prev) => [...prev, { id, text, kind }]);
-    // La animación CSS dura ~900ms; dejamos 1000ms para limpiar
-    setTimeout(() => {
-      setBumps((prev) => prev.filter((b) => b.id !== id));
-    }, 1000);
-  }
+  const [showCelebration, setShowCelebration] = useState(false);
 
   // ---------- GPS robusto ----------
   useEffect(() => {
     if (!("geolocation" in navigator)) return;
 
-    const opts = { enableHighAccuracy: true, maximumAge: 30_000, timeout: 15_000 };
+    const opts = {
+      enableHighAccuracy: true,
+      maximumAge: 30_000,
+      timeout: 15_000,
+    };
 
     const onOK = (pos) => {
       setLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
     };
     const onErr = () => {
-      // Sin alert para no molestar; dejamos loc en null
       setLoc(null);
     };
 
-    // Primer fix rápido
     navigator.geolocation.getCurrentPosition(onOK, onErr, opts);
-
-    // Seguimiento
     const id = navigator.geolocation.watchPosition(onOK, onErr, opts);
     return () => navigator.geolocation.clearWatch(id);
   }, []);
   // ---------- /GPS ----------
+
+  /* --------------------------- Confetti helper --------------------------- */
+  function fireConfetti() {
+    // Versión más “explosiva” pero corta
+    const duration = 700;
+    const end = Date.now() + duration;
+
+    const make = (originX) =>
+      confetti({
+        particleCount: 45,      // más partículas
+        startVelocity: 55,      // más velocidad inicial
+        spread: 90,             // abre más el abanico
+        ticks: 140,             // menos ticks -> sensación más rápida
+        origin: { x: originX, y: 0.6 },
+        scalar: 1.0,            // tamaño un poco mayor
+      });
+
+    const frame = () => {
+      make(0.2);
+      make(0.5); // chorro central extra
+      make(0.8);
+      if (Date.now() < end) requestAnimationFrame(frame);
+    };
+    frame();
+  }
 
   async function loadOrCreate() {
     try {
@@ -92,8 +131,6 @@ export default function UserDemo() {
       setBalance(b);
       const u = await getUserState({ userId: user.id });
       setUser(u);
-      // FE-12: pop visual +1
-      showBump("+1", "plus");
     } catch (err) {
       alert(`Error al acreditar anuncio: ${err.message || err}`);
     }
@@ -105,19 +142,27 @@ export default function UserDemo() {
 
     const lat = round4(loc.lat);
     const lng = round4(loc.lng);
-    const ok = window.confirm(`¿Comprar por 100 doblones en:\nlat=${lat}, lng=${lng}?`);
+    const ok = window.confirm(
+      `¿Comprar por 100 doblones en:\nlat=${lat}, lng=${lng}?`
+    );
     if (!ok) return;
 
     try {
-      const res = await buyParcel({ userId: user.id, cost: 100, x: lng, y: lat });
+      const res = await buyParcel({
+        userId: user.id,
+        cost: 100,
+        x: lng,
+        y: lat,
+      });
+
       if (res?.ok) {
-        // FE-10: toast
         setToast({
           show: true,
           msg: `🏝 Nueva parcela en lat=${lat}, lng=${lng}`,
         });
-        // FE-12: pop visual –100
-        showBump("–100", "minus");
+        setShowCelebration(true);
+        fireConfetti();
+        setTimeout(() => setShowCelebration(false), 1200);
       } else {
         const reason = res?.error || "rechazada";
         alert(`Compra rechazada: ${reason}`);
@@ -131,7 +176,9 @@ export default function UserDemo() {
 
   async function onResetUser() {
     if (!user?.id) return alert("Primero crea/carga un usuario.");
-    const ok = window.confirm("¿Seguro que deseas reiniciar este usuario y borrar todas sus parcelas?");
+    const ok = window.confirm(
+      "¿Seguro que deseas reiniciar este usuario y borrar todas sus parcelas?"
+    );
     if (!ok) return;
     try {
       await resetUserAndParcels(user.id);
@@ -142,12 +189,23 @@ export default function UserDemo() {
     }
   }
 
-  // Auxiliar: simular GPS CDMX (útil en desktop o si no da permiso)
+  // 👉 Botón auxiliar para tests en desktop/preview
   function simulateCDMX() {
-    setLoc({ lat: 19.4326, lng: -99.1332 });
-    alert("📍 Ubicación simulada: CDMX.");
+    const baseLat = 19.4326;
+    const baseLng = -99.1332;
+
+    const jitter = () => (Math.random() - 0.5) * 0.002;
+
+    const lat = baseLat + jitter();
+    const lng = baseLng + jitter();
+
+    setLoc({ lat, lng });
+    alert(
+      `📍 Ubicación simulada: CDMX.\nlat=${round4(lat)}, lng=${round4(lng)}`
+    );
   }
 
+  /* -------------------------------- Render -------------------------------- */
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Demo usuario</h1>
@@ -174,36 +232,43 @@ export default function UserDemo() {
       <section className="mb-6">
         <h2 className="text-xl font-semibold mb-2">Saldo</h2>
         <div className="text-2xl font-bold mb-2">{balance}</div>
-        <div className="mb-2">1 anuncio = 1 doblón · 100 doblones = 1 parcela</div>
-        <button onClick={onAdClick} className="mr-2">Ver anuncio (+1)</button>
-        <button onClick={refreshBalance} className="mr-2">Refrescar saldo</button>
+        <div className="mb-2">
+          1 anuncio = 1 doblón · 100 doblones = 1 parcela
+        </div>
+        <button onClick={onAdClick} className="mr-2">
+          Ver anuncio (+1)
+        </button>
+        <button onClick={refreshBalance} className="mr-2">
+          Refrescar saldo
+        </button>
         <button onClick={onResetUser}>Reiniciar usuario 🗑️</button>
       </section>
 
       <section>
         <h2 className="text-xl font-semibold mb-2">Compra de parcela (GPS)</h2>
-        <p className="mb-2">Compra una parcela en tu ubicación actual. El backend redondea a 4dp.</p>
+        <p className="mb-2">
+          Compra una parcela en tu ubicación actual. El backend redondea a 4dp.
+        </p>
         <button onClick={onBuyHere}>Comprar parcela (−100)</button>
-        <button onClick={simulateCDMX} className="ml-2">Simular GPS (CDMX)</button>
+        <button onClick={simulateCDMX} className="ml-2">
+          Simular GPS (CDMX)
+        </button>
         <div className="mt-2 text-sm opacity-80">
           Ubicación detectada:{" "}
-          {loc ? `lat=${round4(loc.lat)} · lng=${round4(loc.lng)}` : "(sin GPS)"}
+          {loc
+            ? `lat=${round4(loc.lat)} · lng=${round4(loc.lng)}`
+            : "(sin GPS)"}
         </div>
       </section>
 
-      {/* FE-12: burbujas de cambio de saldo */}
-      {bumps.map((b) => (
-        <div key={b.id} className={`balance-bubble ${b.kind}`}>
-          {b.text} doblón{b.text === "+1" ? "" : "es"}
-        </div>
-      ))}
-
-      {/* FE-10: toast compra */}
       <ToastPurchase
         show={toast.show}
         message={toast.msg}
         onClose={() => setToast({ show: false, msg: "" })}
       />
+
+      {/* Overlay de animación de éxito */}
+      {showCelebration && <CelebrationOverlay />}
     </div>
   );
 }
