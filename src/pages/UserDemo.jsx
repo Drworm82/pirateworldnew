@@ -1,5 +1,5 @@
 // src/pages/UserDemo.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   ensureUser,
   getUserState,
@@ -41,10 +41,53 @@ function CelebrationOverlay() {
   );
 }
 
+/* ---------- Efecto visual de cambio de saldo (+ / −) ---------- */
+function BalanceDelta({ delta }) {
+  if (delta == null || delta === 0) return null;
+
+  const isPositive = delta > 0;
+  const sign = isPositive ? "+" : "−";
+  const value = Math.abs(delta);
+
+  return (
+    <>
+      <style>{`
+        @keyframes balanceDeltaFloatUp {
+          0%   { transform: translate(-50%, 10px); opacity: 0; }
+          15%  { transform: translate(-50%, 0); opacity: 1; }
+          70%  { transform: translate(-50%, -22px); opacity: 1; }
+          100% { transform: translate(-50%, -34px); opacity: 0; }
+        }
+      `}</style>
+      <span
+        className="absolute pointer-events-none select-none"
+        style={{
+          left: "50%",
+          bottom: "100%",
+          marginBottom: 4,
+          transform: "translate(-50%, 0)",
+          color: isPositive ? "#4ade80" : "#f97373",
+          fontSize: "1.6rem",
+          fontWeight: 800,
+          textShadow: "0 0 8px rgba(0,0,0,.7)",
+          animation: "balanceDeltaFloatUp 1.2s ease-out forwards",
+          zIndex: 5,
+        }}
+      >
+        {sign}
+        {value}
+      </span>
+    </>
+  );
+}
+
 export default function UserDemo() {
   const [email, setEmail] = useState("worm_jim@hotmail.com");
   const [user, setUser] = useState(null);
   const [balance, setBalance] = useState(0);
+  const [balanceDelta, setBalanceDelta] = useState(null);
+  const balanceDeltaTimeoutRef = useRef(null);
+
   const [loc, setLoc] = useState(null); // { lat, lng } o null
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ show: false, msg: "" });
@@ -75,27 +118,38 @@ export default function UserDemo() {
 
   /* --------------------------- Confetti helper --------------------------- */
   function fireConfetti() {
-    // Versión más “explosiva” pero corta
     const duration = 700;
     const end = Date.now() + duration;
 
     const make = (originX) =>
       confetti({
-        particleCount: 45,      // más partículas
-        startVelocity: 55,      // más velocidad inicial
-        spread: 90,             // abre más el abanico
-        ticks: 140,             // menos ticks -> sensación más rápida
+        particleCount: 45,
+        startVelocity: 55,
+        spread: 90,
+        ticks: 140,
         origin: { x: originX, y: 0.6 },
-        scalar: 1.0,            // tamaño un poco mayor
+        scalar: 1.0,
       });
 
     const frame = () => {
       make(0.2);
-      make(0.5); // chorro central extra
+      make(0.5);
       make(0.8);
       if (Date.now() < end) requestAnimationFrame(frame);
     };
     frame();
+  }
+
+  /* ---------------------- Helper para mostrar delta ---------------------- */
+  function showBalanceDelta(value) {
+    if (balanceDeltaTimeoutRef.current) {
+      clearTimeout(balanceDeltaTimeoutRef.current);
+    }
+    setBalanceDelta(value);
+    balanceDeltaTimeoutRef.current = setTimeout(() => {
+      setBalanceDelta(null);
+      balanceDeltaTimeoutRef.current = null;
+    }, 1200);
   }
 
   async function loadOrCreate() {
@@ -127,8 +181,10 @@ export default function UserDemo() {
   async function onAdClick() {
     if (!user?.id) return alert("Primero crea/carga un usuario.");
     try {
+      const before = balance;
       const { balance: b } = await creditAd(user.id);
       setBalance(b);
+      showBalanceDelta(b - before); // normalmente +1
       const u = await getUserState({ userId: user.id });
       setUser(u);
     } catch (err) {
@@ -147,6 +203,8 @@ export default function UserDemo() {
     );
     if (!ok) return;
 
+    const before = balance;
+
     try {
       const res = await buyParcel({
         userId: user.id,
@@ -156,6 +214,13 @@ export default function UserDemo() {
       });
 
       if (res?.ok) {
+        // Si el backend devuelve soft_coins, lo usamos para el cálculo del delta
+        const newBalance =
+          typeof res.soft_coins === "number" ? res.soft_coins : before - 100;
+
+        setBalance(newBalance);
+        showBalanceDelta(newBalance - before); // debería ser -100
+
         setToast({
           show: true,
           msg: `🏝 Nueva parcela en lat=${lat}, lng=${lng}`,
@@ -170,6 +235,7 @@ export default function UserDemo() {
     } catch (err) {
       alert(`Error al comprar: ${err.message || err}`);
     } finally {
+      // sincronización de cortesía, ya no depende el delta de esto
       await refreshBalance();
     }
   }
@@ -193,12 +259,9 @@ export default function UserDemo() {
   function simulateCDMX() {
     const baseLat = 19.4326;
     const baseLng = -99.1332;
-
     const jitter = () => (Math.random() - 0.5) * 0.002;
-
     const lat = baseLat + jitter();
     const lng = baseLng + jitter();
-
     setLoc({ lat, lng });
     alert(
       `📍 Ubicación simulada: CDMX.\nlat=${round4(lat)}, lng=${round4(lng)}`
@@ -231,7 +294,10 @@ export default function UserDemo() {
 
       <section className="mb-6">
         <h2 className="text-xl font-semibold mb-2">Saldo</h2>
-        <div className="text-2xl font-bold mb-2">{balance}</div>
+        <div className="relative inline-flex items-center mb-2">
+          <span className="text-2xl font-bold">{balance}</span>
+          <BalanceDelta delta={balanceDelta} />
+        </div>
         <div className="mb-2">
           1 anuncio = 1 doblón · 100 doblones = 1 parcela
         </div>
