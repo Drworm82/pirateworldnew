@@ -1,0 +1,56 @@
+name: Supabase Deploy (Preview/Prod)
+
+on:
+  push:
+    branches: [dev, main]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - name: 🛎️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🧰 Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: 🔧 Select project (preview/prod)
+        id: sel
+        run: |
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            echo "PROJECT_REF=${{ secrets.PROJECT_REF_PROD }}" >> $GITHUB_OUTPUT
+            echo "ENV=prod" >> $GITHUB_OUTPUT
+          else
+            echo "PROJECT_REF=${{ secrets.PROJECT_REF_PREVIEW }}" >> $GITHUB_OUTPUT
+            echo "ENV=preview" >> $GITHUB_OUTPUT
+          fi
+          echo "Using ${{ steps.sel.outputs.ENV }} → ${{ steps.sel.outputs.PROJECT_REF }}"
+
+      - name: 🔗 Link Supabase project
+        run: supabase link --project-ref "${{ steps.sel.outputs.PROJECT_REF }}"
+
+      # Si llevas migraciones en supabase/migrations, se aplican aquí
+      - name: 📦 Apply migrations (if any)
+        run: |
+          if compgen -G "supabase/migrations/*.sql" > /dev/null; then
+            supabase db push --include-all
+          else
+            echo "No migrations folder found, skipping db push."
+          fi
+
+      # Garantiza que la RPC exista y con la firma correcta
+      - name: 🛡️ Ensure buy_parcel RPC exists (and fix signature)
+        run: |
+          if [ -f "supabase/sql/buy_parcel.sql" ]; then
+            supabase db execute --file supabase/sql/buy_parcel.sql
+          else
+            echo "supabase/sql/buy_parcel.sql not found; skipping"
+          fi
+
+      - name: ✅ Verify connection
+        run: supabase db verify

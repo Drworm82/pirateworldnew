@@ -10,22 +10,22 @@ import DebugEnv from "./pages/DebugEnv.jsx";
 import MyParcels from "./pages/MyParcels.jsx";
 import MiniMap from "./pages/MiniMap.jsx";
 import Ledger from "./pages/Ledger.jsx";
-import Store from "./pages/Store.jsx";  // ⬅️ NUEVO
+import Store from "./pages/Store.jsx";
 
 import Splash from "./components/Splash.jsx";
 
 import "./index.css";
 
 function useHashRoute() {
-  const [route, setRoute] = useState(location.hash || "#/");
+  const [route, setRoute] = useState(window.location.hash || "#/");
 
   useEffect(() => {
-    const onHash = () => setRoute(location.hash || "#/");
+    const onHash = () => setRoute(window.location.hash || "#/");
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  // limpia el "#/":
+  // limpia el "#"
   return route.replace("#", "");
 }
 
@@ -72,7 +72,7 @@ function App() {
   else if (route === "/mine") page = <MyParcels />;
   else if (route === "/map") page = <MiniMap />;
   else if (route === "/ledger") page = <Ledger />;
-  else if (route === "/store") page = <Store />;   // ⬅️ NUEVO
+  else if (route === "/store") page = <Store />;
   else if (route === "/debug") page = <DebugEnv />;
 
   return (

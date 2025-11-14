@@ -175,6 +175,7 @@ nav.nav a.active {
 }
 
 /* Botón base */
+
 button {
   font: inherit;
   appearance: none;
@@ -207,7 +208,8 @@ button:disabled {
   box-shadow: none;
 }
 
-/* Variantes */
+/* Variantes opcionales si usas className="btn ..." */
+
 .btn {
 }
 
@@ -249,6 +251,7 @@ button:disabled {
 }
 
 /* Leyenda para grids */
+
 .legend {
   display: flex;
   align-items: center;
@@ -264,6 +267,7 @@ button:disabled {
 }
 
 /* dots generales */
+
 .dot {
   width: 12px;
   height: 12px;
@@ -385,6 +389,7 @@ button:disabled {
 }
 
 /* Móvil */
+
 @media (max-width: 420px) {
   .board,
   .purchase-board {
@@ -676,6 +681,7 @@ button:disabled {
 }
 
 .store-card {
+
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
