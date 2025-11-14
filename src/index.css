@@ -681,7 +681,6 @@ button:disabled {
 }
 
 .store-card {
-
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
@@ -737,4 +736,127 @@ button:disabled {
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: #9ca3af;
+}
+
+/* =========================================================
+   FE-17: Misiones diarias
+   ========================================================= */
+
+.missions-page {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.missions-header h2 {
+  margin-top: 0;
+}
+
+.missions-user {
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.missions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mission-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.mission-main h3 {
+  margin: 0 0 6px;
+}
+
+.mission-code {
+  font-size: 12px;
+}
+
+.mission-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+/* RAREZA VISUAL (NAR-03) */
+
+.mission-rarity-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-width: 1px;
+  border-style: solid;
+  font-weight: 600;
+}
+
+.mission-rarity-common {
+  border-color: #94a3b8;
+  color: #cbd5f5;
+}
+
+.mission-rarity-rare {
+  border-color: #0ea5e9;
+  color: #7dd3fc;
+}
+
+.mission-rarity-epic {
+  border-color: #a855f7;
+  color: #e9d5ff;
+}
+
+.mission-rarity-legendary {
+  border-color: #f97316;
+  color: #fed7aa;
+}
+
+.mission-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(22, 163, 74, 0.18);
+  color: #bbf7d0;
+  border: 1px solid rgba(34, 197, 94, 0.6);
+}
+
+.mission-reward {
+  text-align: right;
+  min-width: 120px;
+}
+
+.mission-reward-amount {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.mission-reward-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #9ca3af;
+}
+
+@media (max-width: 520px) {
+  .mission-card {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+  }
+
+  .mission-reward {
+    text-align: left;
+  }
 }
