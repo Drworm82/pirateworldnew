@@ -14,11 +14,17 @@ export function round4(n) {
 // -----------------------------------------------
 // “Sesión” local (recordar último usuario)
 export function getLastUserId() {
-  try { return localStorage.getItem("last_user_id") || null; } catch { return null; }
+  try {
+    return localStorage.getItem("last_user_id") || null;
+  } catch {
+    return null;
+  }
 }
 export function setLastUserId(id) {
   if (!id) return;
-  try { localStorage.setItem("last_user_id", id); } catch {}
+  try {
+    localStorage.setItem("last_user_id", id);
+  } catch {}
 }
 
 // -----------------------------------------------
@@ -88,11 +94,17 @@ export async function creditAd(userId, note = "ad_view") {
   const sb = _getClient();
   if (!sb) throw new Error("Supabase no configurado.");
 
-  // (opcional) si tienes tabla ledger, intenta registrar; ignora si no existe
-  const ins = await sb.from("ledger").insert({
-    user_id: userId, kind: "credit", qty: 1, reason: "ad", note
-  });
-  if (ins.error && ins.error.code !== "42P01") throw ins.error;
+  // Registrar en user_ledger (si existe función add_to_ledger)
+  try {
+    await sb.rpc("add_to_ledger", {
+      p_user_id: userId,
+      p_type: "ad_view",
+      p_delta: 1,
+    });
+  } catch (err) {
+    // Si la RPC no existe o falla, solo log
+    console.warn("add_to_ledger falló en creditAd:", err?.message);
+  }
 
   // Incremento simple: lee, suma y guarda
   const u = await getUserState({ userId });
@@ -140,9 +152,13 @@ export async function listMyParcels(userId) {
 export async function cellsNear(arg1, arg2, arg3) {
   let x, y, radiusM;
   if (typeof arg1 === "object" && arg1 !== null) {
-    x = Number(arg1.x); y = Number(arg1.y); radiusM = Number(arg1.radiusM ?? 500);
+    x = Number(arg1.x);
+    y = Number(arg1.y);
+    radiusM = Number(arg1.radiusM ?? 500);
   } else {
-    x = Number(arg1); y = Number(arg2); radiusM = Number(arg3 ?? 500);
+    x = Number(arg1);
+    y = Number(arg2);
+    radiusM = Number(arg3 ?? 500);
   }
   if (!Number.isFinite(x) || !Number.isFinite(y)) {
     throw new Error("cellsNear: coordenadas inválidas");
@@ -160,8 +176,10 @@ export async function cellsNear(arg1, arg2, arg3) {
   const { data, error } = await sb
     .from("parcels")
     .select("id,x,y,owner_id,created_at")
-    .gte("x", x - dLon).lte("x", x + dLon)
-    .gte("y", y - dLat).lte("y", y + dLat)
+    .gte("x", x - dLon)
+    .lte("x", x + dLon)
+    .gte("y", y - dLat)
+    .lte("y", y + dLat)
     .limit(1000);
   if (error) throw error;
 
@@ -207,4 +225,56 @@ export async function resetUserAndParcels(userId) {
   if (upd.error) throw upd.error;
 
   return { ok: true };
+}
+
+// -----------------------------------------------
+// Ledger
+export async function getUserLedger(userId) {
+  if (!userId) throw new Error("userId requerido");
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const { data, error } = await sb.rpc("get_user_ledger", {
+    p_user_id: userId,
+  });
+  if (error) throw error;
+
+  // Devuelve siempre un array
+  return data || [];
+}
+
+// -----------------------------------------------
+// Store (tienda de ítems)
+// -----------------------------------------------
+export async function listStoreItems() {
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const { data, error } = await sb
+    .from("store_items")
+    .select("id,name,price,rarity,created_at")
+    .order("price", { ascending: true });
+
+  if (error) throw error;
+  return data || [];
+}
+
+/**
+ * buyItem({ userId, itemId })
+ * Llama a la RPC buy_item y devuelve el payload:
+ * { ok, item_id, soft_coins, inventory_id, error? }
+ */
+export async function buyItem({ userId, itemId }) {
+  if (!userId) throw new Error("userId requerido");
+  if (!itemId) throw new Error("itemId requerido");
+
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const { data, error } = await sb.rpc("buy_item", {
+    p_user_id: userId,
+    p_item_id: itemId,
+  });
+  if (error) throw error;
+  return data;
 }
