@@ -11,6 +11,8 @@ import MyParcels from "./pages/MyParcels.jsx";
 import MiniMap from "./pages/MiniMap.jsx";
 import Ledger from "./pages/Ledger.jsx";
 import Store from "./pages/Store.jsx";
+import Inventory from "./pages/Inventory.jsx";
+import Missions from "./pages/Missions.jsx";
 
 import Splash from "./components/Splash.jsx";
 
@@ -56,6 +58,21 @@ function NavBar({ route }) {
       <a href="#/store" className={route === "/store" ? "active" : ""}>
         Tienda
       </a>
+      <a
+        href="#/inventory"
+        className={route === "/inventory" ? "active" : ""}
+      >
+        Inventario
+      </a>
+      <a
+        href="#/missions"
+        className={route === "/missions" ? "active" : ""}
+      >
+        Misiones
+      </a>
+      <a href="#/debug" className={route === "/debug" ? "active" : ""}>
+        Debug
+      </a>
     </nav>
   );
 }
@@ -73,6 +90,8 @@ function App() {
   else if (route === "/map") page = <MiniMap />;
   else if (route === "/ledger") page = <Ledger />;
   else if (route === "/store") page = <Store />;
+  else if (route === "/inventory") page = <Inventory />;
+  else if (route === "/missions") page = <Missions />;
   else if (route === "/debug") page = <DebugEnv />;
 
   return (
