@@ -7,6 +7,7 @@ import {
   buyItem,
   listInventory,
 } from "../lib/supaApi.js";
+import Toast from "../components/Toast.jsx";
 
 function rarityLabel(rarity) {
   switch (rarity) {
@@ -36,10 +37,20 @@ export default function StorePage() {
   const [buyingId, setBuyingId] = useState(null);
   const [globalError, setGlobalError] = useState("");
 
+  // 🔔 Toast estilo móvil
+  const [toast, setToast] = useState(null); // { message, type }
+
   useEffect(() => {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-cerrar el toast después de ~3s
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 2800);
+    return () => clearTimeout(id);
+  }, [toast]);
 
   async function loadAll() {
     setUserLoading(true);
@@ -96,27 +107,46 @@ export default function StorePage() {
     try {
       const res = await buyItem({ userId: user.id, itemId: item.id });
 
+      // Manejo de errores del RPC
       if (!res || !res.ok) {
-        const msg =
-          res?.error === "insufficient_funds"
-            ? "No tienes suficientes doblones para comprar este ítem."
-            : res?.error || "Error al comprar ítem.";
-        throw new Error(msg);
+        const code = res?.error;
+
+        // Caso esperado: no hay suficientes monedas
+        if (code === "insufficient_funds" || code === "not_enough_coins") {
+          setToast({
+            message: "No tienes suficientes doblones para comprar este ítem.",
+            type: "error",
+          });
+          return; // 👈 No lanzamos excepción ni llenamos la consola
+        }
+
+        // Otros errores sí los tratamos como excepciones
+        throw new Error(code || "Error al comprar ítem.");
       }
 
-      // Actualizar saldo local
+      // ✅ Actualizar saldo local
       setUser((prev) =>
         prev ? { ...prev, soft_coins: res.soft_coins ?? prev.soft_coins } : prev
       );
 
-      // Incrementar conteo local del inventario
+      // ✅ Incrementar conteo local del inventario
       setInventoryCounts((prev) => ({
         ...prev,
         [item.id]: (prev[item.id] || 0) + 1,
       }));
+
+      // 🔔 Mostrar toast estilo móvil
+      let msg = `Compraste "${item.name}" por ${item.price} doblones.`;
+      if (res.first_buy && res.xp) {
+        msg += ` +${res.xp} XP por tu primera compra.`;
+      }
+      setToast({ message: msg, type: "success" });
     } catch (err) {
       console.error("handleBuy error:", err);
-      alert(err.message || "Error al comprar ítem.");
+      setToast({
+        message: err.message || "Error al comprar ítem.",
+        type: "error",
+      });
     } finally {
       setBuyingId(null);
     }
@@ -126,10 +156,20 @@ export default function StorePage() {
 
   return (
     <div className="page-container store-page">
-      <h1>Tiend​a pirata</h1>
+      {/* 🔔 Toast flotando estilo móvil */}
+      <Toast
+        message={toast?.message}
+        type={toast?.type || "success"}
+        onClose={() => setToast(null)}
+      />
+
+      <h1>Tienda pirata</h1>
 
       {/* HEADER: saldo + usuario */}
-      <div className="store-header row" style={{ justifyContent: "space-between" }}>
+      <div
+        className="store-header row"
+        style={{ justifyContent: "space-between" }}
+      >
         <div className="row" style={{ gap: 12 }}>
           <div className="store-balance-pill">
             <span

@@ -1,109 +1,122 @@
 // src/main.jsx
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
+import "./index.css";
 
-import Home from "./pages/Home.jsx";
-import SetupSupabase from "./pages/SetupSupabase.jsx";
 import UserDemo from "./pages/UserDemo.jsx";
-import TilesDemo from "./pages/TilesDemo.jsx";
-import DebugEnv from "./pages/DebugEnv.jsx";
-import MyParcels from "./pages/MyParcels.jsx";
-import MiniMap from "./pages/MiniMap.jsx";
 import Ledger from "./pages/Ledger.jsx";
 import Store from "./pages/Store.jsx";
 import Inventory from "./pages/Inventory.jsx";
+import TilesDemo from "./pages/TilesDemo.jsx";
+import MapPage from "./pages/Map.jsx";
 import Missions from "./pages/Missions.jsx";
+import Profile from "./pages/Profile.jsx";
+import ExplorePage from "./pages/Explore.jsx"; // ⭐ NUEVO
 
-import Splash from "./components/Splash.jsx";
-
-import "./index.css";
-
+// Router súper simple basado en window.location.hash
 function useHashRoute() {
-  const [route, setRoute] = useState(window.location.hash || "#/");
+  const [hash, setHash] = useState(window.location.hash || "#/user");
 
   useEffect(() => {
-    const onHash = () => setRoute(window.location.hash || "#/");
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
+    const handle = () => {
+      setHash(window.location.hash || "#/user");
+    };
+    window.addEventListener("hashchange", handle);
+    return () => window.removeEventListener("hashchange", handle);
   }, []);
 
-  // limpia el "#"
-  return route.replace("#", "");
-}
-
-function NavBar({ route }) {
-  return (
-    <nav className="nav">
-      <a href="#/" className={route === "/" ? "active" : ""}>
-        Inicio
-      </a>
-      <a href="#/setup" className={route === "/setup" ? "active" : ""}>
-        Setup Supabase
-      </a>
-      <a href="#/user" className={route === "/user" ? "active" : ""}>
-        Demo usuario
-      </a>
-      <a href="#/tiles" className={route === "/tiles" ? "active" : ""}>
-        Demo parcelas
-      </a>
-      <a href="#/mine" className={route === "/mine" ? "active" : ""}>
-        Mis parcelas
-      </a>
-      <a href="#/map" className={route === "/map" ? "active" : ""}>
-        Mapa
-      </a>
-      <a href="#/ledger" className={route === "/ledger" ? "active" : ""}>
-        Movimientos
-      </a>
-      <a href="#/store" className={route === "/store" ? "active" : ""}>
-        Tienda
-      </a>
-      <a
-        href="#/inventory"
-        className={route === "/inventory" ? "active" : ""}
-      >
-        Inventario
-      </a>
-      <a
-        href="#/missions"
-        className={route === "/missions" ? "active" : ""}
-      >
-        Misiones
-      </a>
-      <a href="#/debug" className={route === "/debug" ? "active" : ""}>
-        Debug
-      </a>
-    </nav>
-  );
+  return hash;
 }
 
 function App() {
-  const route = useHashRoute();
-  const [showSplash, setShowSplash] = useState(true);
+  const hash = useHashRoute();
 
-  let page = <Home />;
-
-  if (route === "/setup") page = <SetupSupabase />;
-  else if (route === "/user") page = <UserDemo />;
-  else if (route === "/tiles") page = <TilesDemo />;
-  else if (route === "/mine") page = <MyParcels />;
-  else if (route === "/map") page = <MiniMap />;
-  else if (route === "/ledger") page = <Ledger />;
-  else if (route === "/store") page = <Store />;
-  else if (route === "/inventory") page = <Inventory />;
-  else if (route === "/missions") page = <Missions />;
-  else if (route === "/debug") page = <DebugEnv />;
+  let page;
+  switch (hash) {
+    case "#/user":
+    case "#/demo":
+      page = <UserDemo />;
+      break;
+    case "#/ledger":
+      page = <Ledger />;
+      break;
+    case "#/store":
+      page = <Store />;
+      break;
+    case "#/inventory":
+      page = <Inventory />;
+      break;
+    case "#/tiles":
+      page = <TilesDemo />;
+      break;
+    case "#/map":
+      page = <MapPage />;
+      break;
+    case "#/missions":
+      page = <Missions />;
+      break;
+    case "#/profile":
+      page = <Profile />;
+      break;
+    case "#/explore":                 // ⭐ RUTA DE EXPLORACIÓN
+      page = <ExplorePage />;
+      break;
+    default:
+      page = <UserDemo />;
+      break;
+  }
 
   return (
-    <>
-      {showSplash && <Splash onDone={() => setShowSplash(false)} />}
+    <div className="app-shell">
+      <nav className="nav">
+        <a href="#/user" className={hash === "#/user" ? "active" : ""}>
+          Usuario demo
+        </a>
+        <a href="#/ledger" className={hash === "#/ledger" ? "active" : ""}>
+          Ledger
+        </a>
+        <a href="#/store" className={hash === "#/store" ? "active" : ""}>
+          Tienda
+        </a>
+        <a
+          href="#/inventory"
+          className={hash === "#/inventory" ? "active" : ""}
+        >
+          Inventario
+        </a>
+        <a href="#/tiles" className={hash === "#/tiles" ? "active" : ""}>
+          Tiles
+        </a>
+        <a href="#/map" className={hash === "#/map" ? "active" : ""}>
+          Mapa
+        </a>
+        <a
+          href="#/missions"
+          className={hash === "#/missions" ? "active" : ""}
+        >
+          Misiones
+        </a>
+        <a
+          href="#/profile"
+          className={hash === "#/profile" ? "active" : ""}
+        >
+          Perfil
+        </a>
+        <a
+          href="#/explore"
+          className={hash === "#/explore" ? "active" : ""} // ⭐ BOTÓN NUEVO
+        >
+          Explorar
+        </a>
+      </nav>
 
-      <main className={`app-shell ${showSplash ? "blurred" : ""}`}>
-        <NavBar route={route} />
-        <div className="page-container">{page}</div>
-      </main>
-    </>
+      {page}
+    </div>
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);

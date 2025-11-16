@@ -352,3 +352,46 @@ export async function listInventory(userId) {
 
   return { ok: true, rows };
 }
+
+// -----------------------------------------------
+// Exploration (cliente → RPC exploration_*)
+// -----------------------------------------------
+export async function startExploration({ userId, durationMin }) {
+  if (!userId) throw new Error("userId requerido");
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const { data, error } = await sb.rpc("exploration_start", {
+    p_user_id: userId,
+    p_duration_min: durationMin,
+  });
+  if (error) throw error;
+  return data; // { ok, cost, soft_coins, run_id, status, ship_name, started_at, eta_at, error? }
+}
+
+export async function getActiveExploration(userId) {
+  if (!userId) throw new Error("userId requerido");
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const { data, error } = await sb.rpc("exploration_get_active", {
+    p_user_id: userId,
+  });
+  if (error) throw error;
+  return data; // { ok, ... } o { ok:false, error:"no_active_run" }
+}
+
+export async function resolveExploration({ userId, runId, depositTo = "wallet" }) {
+  if (!userId) throw new Error("userId requerido");
+  if (!runId) throw new Error("runId requerido");
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const { data, error } = await sb.rpc("exploration_resolve", {
+    p_user_id: userId,
+    p_run_id: runId,
+    p_deposit_to: depositTo,
+  });
+  if (error) throw error;
+  return data; // { ok, coins, soft_coins, loot_json, status, ... }
+}
