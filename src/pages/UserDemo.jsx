@@ -214,7 +214,6 @@ export default function UserDemo() {
       });
 
       if (res?.ok) {
-        // Si el backend devuelve soft_coins, lo usamos para el cálculo del delta
         const newBalance =
           typeof res.soft_coins === "number" ? res.soft_coins : before - 100;
 
@@ -235,7 +234,6 @@ export default function UserDemo() {
     } catch (err) {
       alert(`Error al comprar: ${err.message || err}`);
     } finally {
-      // sincronización de cortesía, ya no depende el delta de esto
       await refreshBalance();
     }
   }
@@ -255,7 +253,6 @@ export default function UserDemo() {
     }
   }
 
-  // 👉 Botón auxiliar para tests en desktop/preview
   function simulateCDMX() {
     const baseLat = 19.4326;
     const baseLng = -99.1332;
@@ -270,53 +267,75 @@ export default function UserDemo() {
 
   /* -------------------------------- Render -------------------------------- */
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Demo usuario</h1>
+    <div className="page-container">
+      <h1 className="big" style={{ marginBottom: 16 }}>
+        Demo usuario
+      </h1>
 
-      <div className="mb-4">
-        <div className="mb-2">Email de prueba</div>
-        <input
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={{ width: 280 }}
-        />
-        <button className="ml-2" onClick={loadOrCreate} disabled={loading}>
-          {loading ? "Cargando..." : "Crear / Cargar"}
-        </button>
+      {/* Card: email + datos de usuario */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="mb-4">
+          <div className="mb-2">Email de prueba</div>
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="input"
+            style={{ maxWidth: 320 }}
+          />
+          <button
+            className="ml-2"
+            onClick={loadOrCreate}
+            disabled={loading}
+            type="button"
+          >
+            {loading ? "Cargando..." : "Crear / Cargar"}
+          </button>
+        </div>
+
+        <section>
+          <h2 className="text-xl font-semibold mb-2">Usuario</h2>
+          <pre className="pre">
+            {JSON.stringify(user ?? { info: "(sin usuario)" }, null, 2)}
+          </pre>
+        </section>
       </div>
 
-      <section className="mb-6">
-        <h2 className="text-xl font-semibold mb-2">Usuario</h2>
-        <pre className="bg-[#0d1c2a] p-3 rounded">
-{JSON.stringify(user ?? { info: "(sin usuario)" }, null, 2)}
-        </pre>
-      </section>
-
-      <section className="mb-6">
+      {/* Card: saldo */}
+      <div className="card" style={{ marginBottom: 16 }}>
         <h2 className="text-xl font-semibold mb-2">Saldo</h2>
-        <div className="relative inline-flex items-center mb-2">
+        <div
+          className="inline-flex items-center mb-2"
+          style={{ position: "relative" }}
+        >
           <span className="text-2xl font-bold">{balance}</span>
           <BalanceDelta delta={balanceDelta} />
         </div>
         <div className="mb-2">
           1 anuncio = 1 doblón · 100 doblones = 1 parcela
         </div>
-        <button onClick={onAdClick} className="mr-2">
+        <button onClick={onAdClick} className="mr-2" type="button">
           Ver anuncio (+1)
         </button>
-        <button onClick={refreshBalance} className="mr-2">
+        <button onClick={refreshBalance} className="mr-2" type="button">
           Refrescar saldo
         </button>
-        <button onClick={onResetUser}>Reiniciar usuario 🗑️</button>
-      </section>
+        <button onClick={onResetUser} type="button">
+          Reiniciar usuario 🗑️
+        </button>
+      </div>
 
-      <section>
-        <h2 className="text-xl font-semibold mb-2">Compra de parcela (GPS)</h2>
+      {/* Card: compra por GPS */}
+      <div className="card">
+        <h2 className="text-xl font-semibold mb-2">
+          Compra de parcela (GPS)
+        </h2>
         <p className="mb-2">
           Compra una parcela en tu ubicación actual. El backend redondea a 4dp.
         </p>
-        <button onClick={onBuyHere}>Comprar parcela (−100)</button>
-        <button onClick={simulateCDMX} className="ml-2">
+        <button onClick={onBuyHere} type="button">
+          Comprar parcela (−100)
+        </button>
+        <button onClick={simulateCDMX} className="ml-2" type="button">
           Simular GPS (CDMX)
         </button>
         <div className="mt-2 text-sm opacity-80">
@@ -325,7 +344,7 @@ export default function UserDemo() {
             ? `lat=${round4(loc.lat)} · lng=${round4(loc.lng)}`
             : "(sin GPS)"}
         </div>
-      </section>
+      </div>
 
       <ToastPurchase
         show={toast.show}
@@ -333,7 +352,6 @@ export default function UserDemo() {
         onClose={() => setToast({ show: false, msg: "" })}
       />
 
-      {/* Overlay de animación de éxito */}
       {showCelebration && <CelebrationOverlay />}
     </div>
   );

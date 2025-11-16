@@ -1,9 +1,18 @@
 // src/lib/supaApi.js
 // -----------------------------------------------
-// Cliente Supabase
-import { getClient as _getClient } from "./supaClient.js";
-export const getSupa = _getClient;     // alias compatibilidad
-export { _getClient as getClient };    // re-export explícito
+// Cliente Supabase + helpers de runtime
+import {
+  getClient as _getClient,
+  isConfigured as _isConfigured,
+  saveRuntimeEnv as _saveRuntimeEnv,
+} from "./supaClient.js";
+
+export const getSupa = _getClient; // alias compatibilidad
+export { _getClient as getClient };
+
+// Re-export de helpers de configuración (los usa main.jsx, Inventory, etc.)
+export const isConfigured = _isConfigured;
+export const saveRuntimeEnv = _saveRuntimeEnv;
 
 // -----------------------------------------------
 // Utils
@@ -20,11 +29,14 @@ export function getLastUserId() {
     return null;
   }
 }
+
 export function setLastUserId(id) {
   if (!id) return;
   try {
     localStorage.setItem("last_user_id", id);
-  } catch {}
+  } catch {
+    // ignore
+  }
 }
 
 // -----------------------------------------------
@@ -102,7 +114,6 @@ export async function creditAd(userId, note = "ad_view") {
       p_delta: 1,
     });
   } catch (err) {
-    // Si la RPC no existe o falla, solo log
     console.warn("add_to_ledger falló en creditAd:", err?.message);
   }
 
@@ -164,7 +175,6 @@ export async function cellsNear(arg1, arg2, arg3) {
     throw new Error("cellsNear: coordenadas inválidas");
   }
 
-  // Bounding box aproximado
   const metersPerDegLat = 111_320;
   const metersPerDegLon = 111_320 * Math.cos((y * Math.PI) / 180);
   const dLat = radiusM / metersPerDegLat;
@@ -277,4 +287,111 @@ export async function buyItem({ userId, itemId }) {
   });
   if (error) throw error;
   return data;
+}
+
+// -----------------------------------------------
+// Missions (cliente → RPC complete_mission)
+// -----------------------------------------------
+export async function completeMission({ userId, missionCode }) {
+  if (!userId) throw new Error("userId requerido");
+  if (!missionCode) throw new Error("missionCode requerido");
+
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const { data, error } = await sb.rpc("complete_mission", {
+    p_user_id: userId,
+    p_mission_code: missionCode,
+  });
+  if (error) throw error;
+  return data; // { ok, mission_code, reward_soft_coins, soft_coins, ledger? }
+}
+
+// -----------------------------------------------
+// Inventory (cliente)
+// -----------------------------------------------
+export async function listInventory(userId) {
+  const supa = getSupa();
+  if (!supa || !userId) {
+    return { ok: false, error: "not_configured_or_no_user" };
+  }
+
+  // 1) filas de inventario
+  const { data: inv, error: errInv } = await supa
+    .from("user_inventory")
+    .select("id, user_id, item_id, acquired_at, created_at")
+    .eq("user_id", userId)
+    .order("acquired_at", { ascending: false });
+
+  if (errInv) {
+    console.error("listInventory inv error", errInv);
+    return { ok: false, error: errInv.message || "inventory_query_failed" };
+  }
+
+  if (!inv || inv.length === 0) {
+    return { ok: true, rows: [] };
+  }
+
+  // 2) catálogo de ítems
+  const { data: items, error: errItems } = await supa
+    .from("store_items")
+    .select("id, name, price, rarity");
+
+  if (errItems) {
+    console.error("listInventory items error", errItems);
+    // devolvemos inventario sin metadata de ítem
+    return { ok: true, rows: inv.map((row) => ({ ...row, item: null })) };
+  }
+
+  const map = new Map(items.map((it) => [it.id, it]));
+
+  const rows = inv.map((row) => ({
+    ...row,
+    item: map.get(row.item_id) || null,
+  }));
+
+  return { ok: true, rows };
+}
+
+// -----------------------------------------------
+// Exploration (cliente → RPC exploration_*)
+// -----------------------------------------------
+export async function startExploration({ userId, durationMin }) {
+  if (!userId) throw new Error("userId requerido");
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const { data, error } = await sb.rpc("exploration_start", {
+    p_user_id: userId,
+    p_duration_min: durationMin,
+  });
+  if (error) throw error;
+  return data; // { ok, cost, soft_coins, run_id, status, ship_name, started_at, eta_at, error? }
+}
+
+export async function getActiveExploration(userId) {
+  if (!userId) throw new Error("userId requerido");
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const { data, error } = await sb.rpc("exploration_get_active", {
+    p_user_id: userId,
+  });
+  if (error) throw error;
+  return data; // { ok, ... } o { ok:false, error:"no_active_run" }
+}
+
+export async function resolveExploration({ userId, runId, depositTo = "wallet" }) {
+  if (!userId) throw new Error("userId requerido");
+  if (!runId) throw new Error("runId requerido");
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const { data, error } = await sb.rpc("exploration_resolve", {
+    p_user_id: userId,
+    p_run_id: runId,
+    p_deposit_to: depositTo,
+  });
+  if (error) throw error;
+  return data; // { ok, coins, soft_coins, loot_json, status, ... }
 }

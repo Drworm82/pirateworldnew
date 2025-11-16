@@ -1,15 +1,16 @@
 // src/pages/Store.jsx
 import React, { useEffect, useState } from "react";
 import {
-  ensureUser,
   getLastUserId,
   getUserState,
   listStoreItems,
   buyItem,
+  listInventory,
 } from "../lib/supaApi.js";
+import Toast from "../components/Toast.jsx";
 
 function rarityLabel(rarity) {
-  switch ((rarity || "").toLowerCase()) {
+  switch (rarity) {
     case "common":
       return "Común";
     case "rare":
@@ -19,256 +20,287 @@ function rarityLabel(rarity) {
     case "legendary":
       return "Legendario";
     default:
-      return rarity || "Desconocido";
+      return rarity || "—";
   }
 }
 
-export default function Store() {
+export default function StorePage() {
   const [user, setUser] = useState(null);
-  const [balance, setBalance] = useState(0);
+  const [userLoading, setUserLoading] = useState(true);
+  const [userError, setUserError] = useState("");
+
   const [items, setItems] = useState([]);
-  const [loadingUser, setLoadingUser] = useState(true);
-  const [loadingItems, setLoadingItems] = useState(false);
+  const [itemsLoading, setItemsLoading] = useState(true);
+  const [itemsError, setItemsError] = useState("");
+
+  const [inventoryCounts, setInventoryCounts] = useState({});
   const [buyingId, setBuyingId] = useState(null);
+  const [globalError, setGlobalError] = useState("");
 
-  const [emailInput, setEmailInput] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
-  const [infoMsg, setInfoMsg] = useState("");
+  // 🔔 Toast estilo móvil
+  const [toast, setToast] = useState(null); // { message, type }
 
-  // Cargar usuario desde last_user_id si existe
   useEffect(() => {
-    let cancelled = false;
-
-    async function init() {
-      setLoadingUser(true);
-      setErrorMsg("");
-      try {
-        const lastId = getLastUserId();
-        if (!lastId) return;
-
-        const u = await getUserState({ userId: lastId });
-        if (cancelled) return;
-
-        setUser(u);
-        setBalance(Number(u.soft_coins ?? 0));
-      } catch (err) {
-        if (!cancelled) {
-          console.error(err);
-          setErrorMsg(err?.message || "Error al cargar usuario.");
-        }
-      } finally {
-        if (!cancelled) setLoadingUser(false);
-      }
-    }
-
-    init();
-    return () => {
-      cancelled = true;
-    };
+    loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Cargar ítems cuando haya usuario
+  // Auto-cerrar el toast después de ~3s
   useEffect(() => {
-    if (!user?.id) return;
-    let cancelled = false;
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 2800);
+    return () => clearTimeout(id);
+  }, [toast]);
 
-    async function fetchItems() {
-      setLoadingItems(true);
-      setErrorMsg("");
-      try {
-        const data = await listStoreItems();
-        if (cancelled) return;
-        setItems(data);
-      } catch (err) {
-        if (!cancelled) {
-          console.error(err);
-          setErrorMsg(err?.message || "Error al cargar la tienda.");
-        }
-      } finally {
-        if (!cancelled) setLoadingItems(false);
-      }
-    }
-
-    fetchItems();
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id]);
-
-  async function handleEnsureUser(e) {
-    e?.preventDefault?.();
-    setErrorMsg("");
-    setInfoMsg("");
-
-    const email = (emailInput || "").trim().toLowerCase();
-    if (!email) {
-      setErrorMsg("Escribe un email para continuar.");
-      return;
-    }
+  async function loadAll() {
+    setUserLoading(true);
+    setItemsLoading(true);
+    setUserError("");
+    setItemsError("");
+    setGlobalError("");
+    setInventoryCounts({});
 
     try {
-      const { user: u, created } = await ensureUser(email);
+      const lastId = getLastUserId();
+      if (!lastId) {
+        setUserError(
+          "No hay usuario activo. Ve a 'Demo usuario' para crear / cargar uno."
+        );
+        setUserLoading(false);
+        setItemsLoading(false);
+        return;
+      }
+
+      const [u, storeItems, inv] = await Promise.all([
+        getUserState({ userId: lastId }),
+        listStoreItems(),
+        listInventory(lastId),
+      ]);
+
       setUser(u);
-      setBalance(Number(u.soft_coins ?? 0));
-      setInfoMsg(
-        created
-          ? "Usuario creado, ya puedes usar la tienda."
-          : "Usuario cargado, ya puedes usar la tienda."
-      );
+      setItems(storeItems);
+
+      if (!inv.ok) {
+        console.warn("Error al leer inventario:", inv.error);
+        setInventoryCounts({});
+      } else {
+        const counts = {};
+        for (const row of inv.rows) {
+          counts[row.item_id] = (counts[row.item_id] || 0) + 1;
+        }
+        setInventoryCounts(counts);
+      }
     } catch (err) {
-      console.error(err);
-      setErrorMsg(err?.message || "No se pudo crear/cargar el usuario.");
+      console.error("Error al cargar tienda:", err);
+      setGlobalError(err.message || "Error al cargar la tienda.");
+    } finally {
+      setUserLoading(false);
+      setItemsLoading(false);
     }
   }
 
   async function handleBuy(item) {
-    if (!user?.id) {
-      setErrorMsg("Primero carga o crea un usuario.");
-      return;
-    }
-    setErrorMsg("");
-    setInfoMsg("");
+    if (!user) return;
+    setGlobalError("");
     setBuyingId(item.id);
 
     try {
       const res = await buyItem({ userId: user.id, itemId: item.id });
-      if (!res?.ok) {
-        const reason =
-          res?.error === "insufficient_funds"
-            ? "Saldo insuficiente."
-            : res?.error || "Compra rechazada.";
-        setErrorMsg(reason);
-        return;
+
+      // Manejo de errores del RPC
+      if (!res || !res.ok) {
+        const code = res?.error;
+
+        // Caso esperado: no hay suficientes monedas
+        if (code === "insufficient_funds" || code === "not_enough_coins") {
+          setToast({
+            message: "No tienes suficientes doblones para comprar este ítem.",
+            type: "error",
+          });
+          return; // 👈 No lanzamos excepción ni llenamos la consola
+        }
+
+        // Otros errores sí los tratamos como excepciones
+        throw new Error(code || "Error al comprar ítem.");
       }
-      // Actualizar saldo
-      setBalance(Number(res.soft_coins ?? balance));
-      setInfoMsg(`Compraste "${item.name}" por ${item.price} doblones.`);
+
+      // ✅ Actualizar saldo local
+      setUser((prev) =>
+        prev ? { ...prev, soft_coins: res.soft_coins ?? prev.soft_coins } : prev
+      );
+
+      // ✅ Incrementar conteo local del inventario
+      setInventoryCounts((prev) => ({
+        ...prev,
+        [item.id]: (prev[item.id] || 0) + 1,
+      }));
+
+      // 🔔 Mostrar toast estilo móvil
+      let msg = `Compraste "${item.name}" por ${item.price} doblones.`;
+      if (res.first_buy && res.xp) {
+        msg += ` +${res.xp} XP por tu primera compra.`;
+      }
+      setToast({ message: msg, type: "success" });
     } catch (err) {
-      console.error(err);
-      setErrorMsg(err?.message || "Error al comprar el ítem.");
+      console.error("handleBuy error:", err);
+      setToast({
+        message: err.message || "Error al comprar ítem.",
+        type: "error",
+      });
     } finally {
       setBuyingId(null);
     }
   }
 
+  const loading = userLoading || itemsLoading;
+
   return (
-    <div className="store-page">
-      <div className="card store-header">
-        <h2 style={{ margin: "0 0 6px" }}>Tienda pirata</h2>
-        <p className="muted" style={{ margin: 0 }}>
-          Compra ítems cosméticos y objetos especiales usando tus doblones.
-        </p>
+    <div className="page-container store-page">
+      {/* 🔔 Toast flotando estilo móvil */}
+      <Toast
+        message={toast?.message}
+        type={toast?.type || "success"}
+        onClose={() => setToast(null)}
+      />
 
-        <div
-          style={{
-            marginTop: 10,
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 12,
-            alignItems: "center",
-          }}
-        >
+      <h1>Tienda pirata</h1>
+
+      {/* HEADER: saldo + usuario */}
+      <div
+        className="store-header row"
+        style={{ justifyContent: "space-between" }}
+      >
+        <div className="row" style={{ gap: 12 }}>
           <div className="store-balance-pill">
-            <span className="store-balance-label">Saldo</span>
-            <span className="store-balance-value">{balance}</span>
-            <span className="store-balance-unit">doblones</span>
-          </div>
-
-          {user?.email && (
-            <span className="ledger-user-id">
-              Usuario: <strong>{user.email}</strong>
+            <span
+              style={{
+                fontSize: 11,
+                textTransform: "uppercase",
+                letterSpacing: "0.16em",
+                opacity: 0.8,
+              }}
+            >
+              Saldo
             </span>
-          )}
+            <strong>{user?.soft_coins ?? 0}</strong>
+            <span style={{ fontSize: 12 }}>doblones</span>
+          </div>
+          <div className="store-user">
+            Usuario:{" "}
+            <strong>{user?.email || (!user && !userLoading ? "—" : "")}</strong>
+          </div>
         </div>
+
+        <button
+          type="button"
+          className="btn ghost"
+          onClick={loadAll}
+          disabled={loading}
+        >
+          Recargar
+        </button>
       </div>
 
-      {/* Bloque para cargar/crear usuario */}
-      {!user && (
-        <div className="card store-auth-card">
-          <h3 style={{ marginTop: 0 }}>Cargar usuario</h3>
-          <p className="muted" style={{ fontSize: 14 }}>
-            Escribe el email de tu pirata para crear/cargar su cuenta y poder
-            usar la tienda.
-          </p>
-          <form
-            onSubmit={handleEnsureUser}
-            style={{ display: "flex", flexWrap: "wrap", gap: 8 }}
-          >
-            <input
-              className="input"
-              type="email"
-              placeholder="pirata@example.com"
-              value={emailInput}
-              onChange={(e) => setEmailInput(e.target.value)}
-            />
-            <button type="submit">Entrar</button>
-          </form>
+      <p className="muted" style={{ marginBottom: 16 }}>
+        Compra ítems cosméticos y objetos especiales usando tus doblones. La
+        cantidad que ya posees se muestra en cada carta.
+      </p>
+
+      {/* Mensajes de error generales */}
+      {globalError && (
+        <div className="card" style={{ borderColor: "#b91c1c" }}>
+          <div style={{ color: "#fecaca", fontSize: 14 }}>{globalError}</div>
+        </div>
+      )}
+      {userError && (
+        <div className="card" style={{ borderColor: "#b45309" }}>
+          <div style={{ color: "#fed7aa", fontSize: 14 }}>{userError}</div>
+        </div>
+      )}
+      {itemsError && (
+        <div className="card" style={{ borderColor: "#b91c1c" }}>
+          <div style={{ color: "#fecaca", fontSize: 14 }}>{itemsError}</div>
         </div>
       )}
 
-      {/* Mensajes */}
-      {errorMsg && <p className="store-error">{errorMsg}</p>}
-      {infoMsg && <p className="store-info">{infoMsg}</p>}
-
-      {/* Grid de ítems */}
-      {user && (
-        <div className="card store-items-card">
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: 12,
-              alignItems: "baseline",
-              marginBottom: 12,
-            }}
-          >
-            <h3 style={{ margin: 0 }}>Ítems disponibles</h3>
-            {loadingItems && (
-              <span className="muted" style={{ fontSize: 13 }}>
-                Cargando tienda...
-              </span>
-            )}
+      {/* GRID DE ÍTEMS */}
+      <div className="store-grid">
+        {loading && items.length === 0 && (
+          <div className="card">
+            <div className="muted">Cargando tienda...</div>
           </div>
+        )}
 
-          {items.length === 0 && !loadingItems && (
-            <p className="muted" style={{ fontSize: 14 }}>
-              No hay ítems configurados en la tabla <code>store_items</code>.
-            </p>
-          )}
+        {!loading && items.length === 0 && (
+          <div className="card">
+            <div className="muted">No hay ítems configurados en la tienda.</div>
+          </div>
+        )}
 
-          <div className="store-grid">
-            {items.map((item) => (
-              <div key={item.id} className="store-card">
-                <div className="store-card-header">
-                  <span className="store-item-name">{item.name}</span>
-                  <span className={`store-rarity store-rarity-${item.rarity}`}>
+        {items.map((item) => {
+          const owned = inventoryCounts[item.id] || 0;
+          const disabled =
+            !user || buyingId === item.id || (user?.soft_coins ?? 0) < item.price;
+
+          return (
+            <article key={item.id} className="store-card">
+              <div className="store-card-main">
+                <h3>{item.name}</h3>
+                <div style={{ marginBottom: 8 }}>
+                  <span
+                    className={[
+                      "store-rarity-pill",
+                      item.rarity ? `store-rarity-${item.rarity}` : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                  >
                     {rarityLabel(item.rarity)}
                   </span>
                 </div>
 
-                <div className="store-card-body">
-                  <div className="store-price">
-                    <span className="store-price-value">{item.price}</span>
-                    <span className="store-price-label">doblones</span>
-                  </div>
-                  <button
-                    onClick={() => handleBuy(item)}
-                    disabled={buyingId === item.id}
+                {owned > 0 && (
+                  <div
+                    style={{
+                      marginTop: 4,
+                      fontSize: 12,
+                      color: "#a5b4fc",
+                      opacity: 0.9,
+                    }}
                   >
-                    {buyingId === item.id ? "Comprando..." : "Comprar"}
-                  </button>
-                </div>
+                    Ya tienes <strong>x{owned}</strong> de este ítem.
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
 
-      {loadingUser && (
-        <p className="muted" style={{ fontSize: 13 }}>
-          Detectando usuario reciente...
-        </p>
-      )}
+              <div style={{ textAlign: "right" }}>
+                <div className="store-price">{item.price}</div>
+                <div className="store-price-label">doblones</div>
+                <button
+                  type="button"
+                  style={{ marginTop: 10, minWidth: 100 }}
+                  onClick={() => handleBuy(item)}
+                  disabled={disabled}
+                >
+                  {buyingId === item.id ? "Comprando..." : "Comprar"}
+                </button>
+                {!user && (
+                  <div
+                    style={{
+                      marginTop: 6,
+                      fontSize: 11,
+                      color: "#fca5a5",
+                      maxWidth: 160,
+                    }}
+                  >
+                    Crea o carga un usuario en “Demo usuario” para comprar.
+                  </div>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
     </div>
   );
 }
