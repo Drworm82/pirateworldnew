@@ -11,8 +11,9 @@ const LINKS = [
   { label: "Misiones", href: "#/missions", route: "/missions" },
   { label: "Perfil (X)", href: "#/profile", route: "/profile" },
 
-  // ⭐ NUEVO BOTÓN
   { label: "Explorar 🌊", href: "#/explore", route: "/explore" },
+
+  { label: "Tripulación ⚓", href: "#/crew", route: "/crew" },
 
   { label: "Leaderboard", href: "#/leaderboard", route: "/leaderboard" },
 ];

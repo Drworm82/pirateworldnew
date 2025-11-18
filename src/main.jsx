@@ -11,7 +11,8 @@ import TilesDemo from "./pages/TilesDemo.jsx";
 import MapPage from "./pages/Map.jsx";
 import Missions from "./pages/Missions.jsx";
 import Profile from "./pages/Profile.jsx";
-import ExplorePage from "./pages/Explore.jsx"; // ⭐ NUEVO
+import ExplorePage from "./pages/Explore.jsx"; // ⭐ EXPLORACIÓN
+import CrewPage from "./pages/Crew.jsx"; // ⭐ NUEVA PANTALLA DE TRIPULACIÓN
 
 // Router súper simple basado en window.location.hash
 function useHashRoute() {
@@ -58,8 +59,11 @@ function App() {
     case "#/profile":
       page = <Profile />;
       break;
-    case "#/explore":                 // ⭐ RUTA DE EXPLORACIÓN
+    case "#/explore":
       page = <ExplorePage />;
+      break;
+    case "#/crew": // ⭐ NUEVA RUTA
+      page = <CrewPage />;
       break;
     default:
       page = <UserDemo />;
@@ -96,17 +100,14 @@ function App() {
         >
           Misiones
         </a>
-        <a
-          href="#/profile"
-          className={hash === "#/profile" ? "active" : ""}
-        >
+        <a href="#/profile" className={hash === "#/profile" ? "active" : ""}>
           Perfil
         </a>
-        <a
-          href="#/explore"
-          className={hash === "#/explore" ? "active" : ""} // ⭐ BOTÓN NUEVO
-        >
+        <a href="#/explore" className={hash === "#/explore" ? "active" : ""}>
           Explorar
+        </a>
+        <a href="#/crew" className={hash === "#/crew" ? "active" : ""}>
+          Tripulación
         </a>
       </nav>
 

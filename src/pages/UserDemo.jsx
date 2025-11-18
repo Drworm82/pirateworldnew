@@ -12,6 +12,20 @@ import {
 import ToastPurchase from "../components/ToastPurchase.jsx";
 import confetti from "canvas-confetti";
 
+/* ------------ Constantes para email demo + helpers de localStorage ------------ */
+const FALLBACK_EMAIL = "worm_jim@hotmail.com";
+
+function getInitialEmail() {
+  if (typeof window === "undefined") return FALLBACK_EMAIL;
+
+  // Intentamos leer en el mismo orden que Crew.jsx
+  const fromDemo = window.localStorage.getItem("demoEmail");
+  const fromDemoUser = window.localStorage.getItem("demoUserEmail");
+  const fromLegacy = window.localStorage.getItem("userEmail");
+
+  return fromDemo || fromDemoUser || fromLegacy || FALLBACK_EMAIL;
+}
+
 /* ---------- Mini overlay de celebración (check con animación) ---------- */
 function CelebrationOverlay() {
   return (
@@ -82,7 +96,8 @@ function BalanceDelta({ delta }) {
 }
 
 export default function UserDemo() {
-  const [email, setEmail] = useState("worm_jim@hotmail.com");
+  // 🔹 Ahora el email inicial viene de localStorage si existe
+  const [email, setEmail] = useState(() => getInitialEmail());
   const [user, setUser] = useState(null);
   const [balance, setBalance] = useState(0);
   const [balanceDelta, setBalanceDelta] = useState(null);
@@ -155,8 +170,24 @@ export default function UserDemo() {
   async function loadOrCreate() {
     try {
       setLoading(true);
-      const { user: u } = await ensureUser(email);
+
+      const trimmed = email.trim();
+      if (!trimmed) {
+        alert("Por favor escribe un email de prueba.");
+        return;
+      }
+
+      const normalized = trimmed.toLowerCase();
+
+      // 🔹 Guardamos el email para que CrewPage lo pueda leer
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("demoEmail", normalized);
+      }
+
+      const { user: u } = await ensureUser(normalized);
       setUser(u);
+      setEmail(normalized);
+
       const b = await getBalance(u.id);
       setBalance(b);
     } catch (err) {
