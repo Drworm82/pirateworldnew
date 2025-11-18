@@ -48,6 +48,29 @@ function getCurrentEmail() {
   return email;
 }
 
+// --- PRIVACIDAD: helpers para mostrar nombre sin exponer el correo ---
+function maskEmail(email) {
+  if (!email) return "";
+  const [user, domain] = email.split("@");
+  if (!domain) return email;
+  if (user.length <= 3) return `${user[0]}***@${domain}`;
+  return `${user.slice(0, 3)}***@${domain}`;
+}
+
+function shortId(id) {
+  if (!id) return "-";
+  return id.slice(0, 8) + "…";
+}
+
+function displayPirate(member) {
+  if (!member) return "-";
+  if (member.pirate_name && member.pirate_name.trim() !== "") {
+    return member.pirate_name.trim();
+  }
+  if (member.email) return maskEmail(member.email);
+  return shortId(member.user_id);
+}
+
 // label amigable para mostrar en “Mi rol” y en tablas
 function roleLabel(userId, crew, members = []) {
   if (!crew) return "";
@@ -58,11 +81,6 @@ function roleLabel(userId, crew, members = []) {
     return member.role_name.trim();
   }
   return "Miembro";
-}
-
-function shortId(id) {
-  if (!id) return "-";
-  return id.slice(0, 8) + "…";
 }
 
 export default function CrewPage() {
@@ -325,7 +343,7 @@ export default function CrewPage() {
     if (!ok) return;
 
     setBusy(true);
-       setError("");
+    setError("");
     try {
       const { user: u } = await ensureUser(getCurrentEmail());
       setUser(u);
@@ -569,9 +587,11 @@ export default function CrewPage() {
   const { inCrew, crew } = crewState;
   const members = crew?.members || [];
 
-  // Para mostrar nombre del capitán (email) en vez de solo el ID
+  // Para mostrar nombre del capitán (pirate_name / correo enmascarado)
   const captainMember = members.find((m) => m.user_id === crew?.captain_id);
-  const captainLabel = captainMember?.email || shortId(crew?.captain_id);
+  const captainLabel = captainMember
+    ? displayPirate(captainMember)
+    : shortId(crew?.captain_id);
 
   const captainId = crew?.captain_id || null;
 
@@ -634,9 +654,12 @@ export default function CrewPage() {
       {user && (
         <div className="card" style={{ marginBottom: 12 }}>
           <div className="muted" style={{ fontSize: 13 }}>
-            Usuario actual
+            Capitán actual (tú en este dispositivo)
           </div>
           <strong>{user.email}</strong>
+          <div className="muted" style={{ fontSize: 12 }}>
+            Email (solo tú lo ves): {user.email}
+          </div>
         </div>
       )}
 
@@ -814,7 +837,7 @@ export default function CrewPage() {
                   <table className="ledger-table">
                     <thead>
                       <tr>
-                        <th>Usuario</th>
+                        <th>Pirata</th>
                         <th>Rol</th>
                         <th>% reparto</th>
                         {crew.is_captain && (
@@ -843,7 +866,8 @@ export default function CrewPage() {
 
                         return (
                           <tr key={m.user_id}>
-                            <td>{m.email || shortId(m.user_id)}</td>
+                            {/* AQUÍ YA NO SE VE EMAIL PLANO */}
+                            <td>{displayPirate(m)}</td>
                             <td>
                               {isCaptain ? (
                                 <span
@@ -924,8 +948,8 @@ export default function CrewPage() {
                 Configurar reparto de botín
               </h3>
               <p className="muted" style={{ marginBottom: 10 }}>
-                Sube o baja el porcentaje de cada pirata.{" "}
-                Lo que sobre (hasta 100%) se asigna automáticamente al{" "}
+                Sube o baja el porcentaje de cada pirata. Lo que sobre (hasta
+                100%) se asigna automáticamente al{" "}
                 <strong>capitán</strong>. La suma total es siempre{" "}
                 <strong>100%</strong>.
               </p>
@@ -943,7 +967,7 @@ export default function CrewPage() {
                       <table className="ledger-table">
                         <thead>
                           <tr>
-                            <th>Usuario</th>
+                            <th>Pirata</th>
                             <th>Rol</th>
                             <th style={{ width: 140 }}>% reparto</th>
                           </tr>
@@ -971,7 +995,8 @@ export default function CrewPage() {
 
                             return (
                               <tr key={m.user_id}>
-                                <td>{m.email || shortId(m.user_id)}</td>
+                                {/* También aquí mostramos nombre pirata */}
+                                <td>{displayPirate(m)}</td>
                                 <td>{roleLabel(m.user_id, crew, members)}</td>
                                 <td>
                                   <input
