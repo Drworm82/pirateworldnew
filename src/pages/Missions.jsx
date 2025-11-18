@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getSupa, ensureUser, getUserState } from "../lib/supaApi.js";
 import ConfettiOverlay from "../components/ConfettiOverlay.jsx";
+import "./Missions.css"; // 👈 nuevo: estilos de rareza y tarjetas
 
 const FALLBACK_EMAIL = "worm_jim@hotmail.com";
 
@@ -16,9 +17,22 @@ function getCurrentEmail() {
   return email;
 }
 
+// Normalizamos rareza de la DB (común, rara, épica, legendaria / common, rare, epic, legendary)
+function normalizeRarity(r) {
+  if (!r) return "common";
+  const v = (r || "").toString().toLowerCase().trim();
+
+  if (v.startsWith("com")) return "common"; // común / common
+  if (v.startsWith("rar")) return "rare"; // rara / rare
+  if (v.startsWith("ép") || v.startsWith("ep")) return "epic"; // épica / epic
+  if (v.startsWith("leg")) return "legendary"; // legendaria / legendary
+
+  return "common";
+}
+
 function rarityLabel(r) {
-  if (!r) return "COMÚN";
-  switch (r) {
+  const norm = normalizeRarity(r);
+  switch (norm) {
     case "rare":
       return "RARA";
     case "epic":
@@ -30,17 +44,14 @@ function rarityLabel(r) {
   }
 }
 
-function rarityClass(r) {
-  switch (r) {
-    case "rare":
-      return "mission-rarity-pill mission-rarity-rare";
-    case "epic":
-      return "mission-rarity-pill mission-rarity-epic";
-    case "legendary":
-      return "mission-rarity-pill mission-rarity-legendary";
-    default:
-      return "mission-rarity-pill mission-rarity-common";
-  }
+function rarityPillClass(r) {
+  const norm = normalizeRarity(r);
+  return `mission-rarity-pill mission-rarity-${norm}`;
+}
+
+function missionCardClass(r) {
+  const norm = normalizeRarity(r);
+  return `mission-card mission-card-${norm}`;
 }
 
 export default function Missions() {
@@ -48,17 +59,38 @@ export default function Missions() {
   const [balance, setBalance] = useState(null);
   const [missions, setMissions] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [banner, setBanner] = useState("");
+  const [banner, setBanner] = useState(""); // solo errores
   const [error, setError] = useState("");
   const [claimingId, setClaimingId] = useState(null);
   const [crewInfo, setCrewInfo] = useState(null);
+  const [toast, setToast] = useState(""); // éxito en toast flotante
   const confettiRef = useRef(null);
+  const toastTimeoutRef = useRef(null);
 
-  // Cargar usuario + misiones
+  // Cargar usuario + misiones al montar la pantalla
   useEffect(() => {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Limpiar timeout de toast al desmontar
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  function showToast(message) {
+    setToast(message);
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    toastTimeoutRef.current = setTimeout(() => {
+      setToast("");
+    }, 2500);
+  }
 
   async function loadAll() {
     setLoading(true);
@@ -69,7 +101,7 @@ export default function Missions() {
       const { user: u } = await ensureUser(getCurrentEmail());
       const supa = getSupa();
 
-      // 1) Misiones diarias ya con "done" desde el backend
+      // 1) Misiones diarias con "done" desde el backend
       const { data: missionsRaw, error: errM } = await supa.rpc(
         "missions_get_daily_for_user",
         { p_user_id: u.id }
@@ -143,7 +175,7 @@ export default function Missions() {
     if (m.done) return; // ya completada
     if (claimingId) return;
 
-    // Sin conexión a internet → mensaje inmediato
+    // Sin conexión a internet → mensaje inmediato (error = banner)
     if (typeof navigator !== "undefined" && !navigator.onLine) {
       setBanner(
         "Sin conexión a internet. No se pudo reclamar la recompensa de esta misión."
@@ -183,28 +215,30 @@ export default function Missions() {
         return;
       }
 
-      // Confetti 🎉
+      // 🎉 Confetti
       confettiRef.current?.fire("mission");
 
-      // Actualizar saldo del jugador que reclama
+      // 💰 Actualizar saldo EN MEMORIA (sin recargar todo)
+      const baseReward = Number(m.reward_soft_coins || 0);
+
       if (typeof data.soft_coins === "number") {
+        // Si el backend ya regresó el saldo nuevo, lo usamos
         setBalance(data.soft_coins);
-      } else {
-        try {
-          const fresh = await getUserState({ userId: user.id });
-          setUser(fresh);
-          setBalance(Number(fresh.soft_coins ?? 0));
-        } catch (e) {
-          console.error("No se pudo refrescar saldo después de misión:", e);
-        }
+      } else if (!Number.isNaN(baseReward)) {
+        // Si no viene saldo en la respuesta, sumamos la recompensa esperada
+        setBalance((prev) => {
+          const current = Number(prev ?? 0);
+          return current + baseReward;
+        });
       }
 
-      // Marcar misión como completada localmente (sin recargar todo)
+      // ✅ Marcar misión como completada localmente
       setMissions((prev) =>
         prev.map((x) => (x.id === m.id ? { ...x, done: true } : x))
       );
 
-      setBanner("¡Recompensa reclamada correctamente!");
+      // ✅ Mostrar toast de éxito (no banner para no mover layout)
+      showToast("¡Recompensa reclamada!");
     } catch (err) {
       console.error("Error al reclamar misión:", err);
       setBanner("No se pudo reclamar la recompensa de esta misión.");
@@ -213,7 +247,7 @@ export default function Missions() {
     }
   }
 
-  // Factor de reparto actual para previsualizar recompensa
+  // Factor de reparto actual para previsualizar recompensa (solo referencia)
   const shareFactor =
     crewInfo?.mySharePercent != null
       ? crewInfo.mySharePercent / 100
@@ -277,6 +311,7 @@ export default function Missions() {
         </div>
       </div>
 
+      {/* Banner solo para mensajes de error / estado problemático */}
       {banner && (
         <div className="card" style={{ color: "#fecaca", fontSize: 14 }}>
           {banner}
@@ -305,7 +340,7 @@ export default function Missions() {
               const myEstimatedReward = Math.round(baseReward * shareFactor);
 
               return (
-                <div key={m.id} className="mission-card">
+                <div key={m.id} className={missionCardClass(m.rarity)}>
                   <div className="mission-main">
                     <h3>{m.title}</h3>
                     <p
@@ -316,7 +351,7 @@ export default function Missions() {
                     </p>
 
                     <div className="mission-meta">
-                      <span className={rarityClass(m.rarity)}>
+                      <span className={rarityPillClass(m.rarity)}>
                         {rarityLabel(m.rarity)}
                       </span>
                       {m.done && (
@@ -338,7 +373,7 @@ export default function Missions() {
                         className="muted"
                         style={{ fontSize: 11, marginTop: 4, maxWidth: 220 }}
                       >
-                        Vista de referencia con tu reparto (
+                        Vista de referencia con tu reparto actual (
                         {crewInfo.mySharePercent.toFixed(2)}%): esto equivaldría
                         aprox. a <strong>{myEstimatedReward}</strong> doblones
                         para ti. La misión en sí solo suma a tu saldo personal.
@@ -361,6 +396,26 @@ export default function Missions() {
           </div>
         )}
       </div>
+
+      {/* Toast flotante para éxito */}
+      {toast && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 20,
+            right: 20,
+            background: "rgba(15, 118, 110, 0.95)",
+            color: "#e0fdfa",
+            padding: "10px 16px",
+            borderRadius: 8,
+            fontSize: 13,
+            boxShadow: "0 8px 20px rgba(0,0,0,0.35)",
+            zIndex: 9999,
+          }}
+        >
+          {toast}
+        </div>
+      )}
 
       <ConfettiOverlay ref={confettiRef} />
     </div>
