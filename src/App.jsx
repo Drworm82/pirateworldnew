@@ -11,6 +11,8 @@ import Missions from "./pages/Missions.jsx";
 import Profile from "./pages/Profile.jsx";
 import Leaderboard from "./pages/Leaderboard.jsx";
 import ExplorePage from "./pages/Explore.jsx";
+import CrewPage from "./pages/Crew.jsx";
+import ShipPage from "./pages/Ship.jsx";
 
 import NavBar from "./components/NavBar.jsx";
 
@@ -25,8 +27,11 @@ export default function App() {
   const [route, setRoute] = useState(() => getRouteFromHash());
 
   useEffect(() => {
+    console.log("[router] initial hash:", window.location.hash, "=>", route);
     const onHashChange = () => {
-      setRoute(getRouteFromHash());
+      const r = getRouteFromHash();
+      console.log("[router] hashchange:", window.location.hash, "=>", r);
+      setRoute(r);
     };
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
@@ -65,6 +70,12 @@ export default function App() {
 
       case "/leaderboard":
         return <Leaderboard />;
+
+      case "/crew":
+        return <CrewPage />;
+
+      case "/ship":
+        return <ShipPage />;
 
       default:
         return <UserDemo />;

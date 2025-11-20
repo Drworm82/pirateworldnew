@@ -1,31 +1,19 @@
 // src/pages/Profile.jsx
 import React, { useEffect, useState } from "react";
-import { getSupa, ensureUser, getUserState } from "../lib/supaApi.js";
+import { getSupa } from "../lib/supaApi.js";
 
-const FALLBACK_EMAIL = "worm_jim@hotmail.com";
-
-function getCurrentEmail() {
-  if (typeof window === "undefined") return FALLBACK_EMAIL;
-
-  const fromDemo = window.localStorage.getItem("demoEmail");
-  const fromDemoUser = window.localStorage.getItem("demoUserEmail");
-  const fromLegacy = window.localStorage.getItem("userEmail");
-
-  const email = fromDemo || fromDemoUser || fromLegacy || FALLBACK_EMAIL;
-  return email;
-}
+// Usuario DEMO fijo
+const DEMO_USER_ID = "b54196c8-0fd3-4e7a-be91-9c8c72e35cbd";
+const DEMO_EMAIL = "worm_jim@hotmail.com";
 
 export default function Profile() {
   const [status, setStatus] = useState("loading"); // loading | ready | error
   const [errorMsg, setErrorMsg] = useState("");
-  const [state, setState] = useState(null);        // get_user_state result
-  const [userMeta, setUserMeta] = useState(null);  // { id, email }
+  const [state, setState] = useState(null);
 
-  // Form de nombre pirata
-  const [pirateForm, setPirateForm] = useState("");
-  const [savingName, setSavingName] = useState(false);
-  const [nameError, setNameError] = useState("");
-  const [nameSuccess, setNameSuccess] = useState("");
+  const [pirateInput, setPirateInput] = useState("");
+  const [savingPirate, setSavingPirate] = useState(false);
+  const [pirateMessage, setPirateMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -33,27 +21,56 @@ export default function Profile() {
     async function load() {
       setStatus("loading");
       setErrorMsg("");
-      setNameError("");
-      setNameSuccess("");
+      setPirateMessage("");
 
       try {
         const supa = getSupa();
 
-        // 1) Aseguramos usuario a partir de email (mismo patrón que Missions.jsx)
-        const email = getCurrentEmail();
-        const { user: u } = await ensureUser(email);
+        const { data, error } = await supa.rpc("get_user_state", {
+          p_user_id: DEMO_USER_ID,
+        });
 
-        if (!u?.id) {
-          throw new Error("No se pudo obtener el usuario actual.");
+        if (error) {
+          throw error;
         }
 
-        // 2) Cargamos estado completo vía RPC get_user_state
-        const freshState = await getUserState({ userId: u.id });
+        // data viene como jsonb plano en RPC,
+        // pero dejamos compatibilidad por si viniera envuelto
+        let payload;
+        if (Array.isArray(data)) {
+          const first = data[0] || {};
+          payload = first.get_user_state || first || {};
+        } else {
+          payload = data && data.get_user_state ? data.get_user_state : data || {};
+        }
+
+        // Si la función devuelve { ok:false, ... }
+        if (payload && payload.ok === false) {
+          throw new Error(payload.error || "user_not_found");
+        }
+
+        const merged = {
+          userId: payload.user_id || DEMO_USER_ID,
+          email: payload.email || DEMO_EMAIL,
+          pirate_name: payload.pirate_name || null,
+
+          level: payload.level ?? 1,
+          rank: payload.rank || "Grumete",
+          soft_coins: payload.soft_coins ?? 0,
+
+          // 👇 OJO: aquí usamos LOS NOMBRES REALES del JSON
+          xpCurrent: payload.xp ?? 0,
+          xpNext:
+            payload.xp_next ??
+            ((payload.level || 1) * 100),
+
+          influence: payload.influence_score ?? 0,
+          missionsCompleted: payload.missions_completed_total ?? 0,
+        };
 
         if (!cancelled) {
-          setUserMeta({ id: u.id, email: freshState?.email || email });
-          setState(freshState || null);
-          setPirateForm(freshState?.pirate_name || "");
+          setState(merged);
+          setPirateInput(merged.pirate_name || "");
           setStatus("ready");
         }
       } catch (err) {
@@ -72,102 +89,75 @@ export default function Profile() {
     };
   }, []);
 
-  // ------------------------------------------------------------
-  // Guardar nombre pirata → llama RPC set_pirate_name
-  // ------------------------------------------------------------
-  async function handleSavePirateName(e) {
-    e.preventDefault();
-    if (!userMeta?.id) return;
+  // ----------------- guardar nombre pirata -----------------
 
-    const raw = pirateForm || "";
-    const trimmed = raw.trim();
+  async function handleSavePirateName() {
+    if (!state) return;
+    const raw = pirateInput.trim();
 
-    setNameError("");
-    setNameSuccess("");
+    setPirateMessage("");
 
-    // Validación rápida del lado del cliente
-    if (trimmed.length < 3) {
-      setNameError("El nombre debe tener al menos 3 caracteres.");
-      return;
-    }
-    if (trimmed.length > 24) {
-      setNameError("El nombre no puede tener más de 24 caracteres.");
+    if (raw.length < 3 || raw.length > 24) {
+      setPirateMessage("El nombre debe tener entre 3 y 24 caracteres.");
       return;
     }
 
-    // Misma expresión que en el backend: letras (con acentos y ñ),
-    // números, espacio, guion bajo y guion medio.
-    const regex = /^[0-9A-Za-zÁÉÍÓÚáéíóúÑñÜü _-]+$/;
-    if (!regex.test(trimmed)) {
-      setNameError(
-        "Solo se permiten letras (incluyendo acentos y ñ), números, espacios, guion y guion bajo."
-      );
-      return;
-    }
-
+    setSavingPirate(true);
     try {
-      setSavingName(true);
       const supa = getSupa();
-
       const { data, error } = await supa.rpc("set_pirate_name", {
-        p_user_id: userMeta.id,
-        p_pirate_name: trimmed,
+        p_user_id: state.userId,
+        p_pirate_name: raw,
       });
 
       if (error) {
-        console.error("Error RPC set_pirate_name:", error);
-        setNameError("No se pudo guardar el nombre pirata.");
-        return;
+        throw error;
       }
 
-      if (data?.error) {
-        // Mapear errores del backend a mensajes amigables
-        switch (data.error) {
-          case "too_short":
-            setNameError("El nombre es demasiado corto (mínimo 3 caracteres).");
-            break;
-          case "too_long":
-            setNameError(
-              "El nombre es demasiado largo (máximo 24 caracteres)."
-            );
-            break;
-          case "invalid_chars":
-            setNameError(
-              "Caracteres no permitidos. Usa letras (con acentos y ñ), números, espacios, guion y guion bajo."
-            );
-            break;
-          case "name_taken":
-            setNameError("Ese nombre pirata ya está en uso. Prueba otro.");
-            break;
-          default:
-            setNameError("No se pudo guardar el nombre pirata.");
-            break;
+      let resp = data;
+      if (Array.isArray(data)) {
+        const first = data[0] || {};
+        resp = first.set_pirate_name || first || {};
+      }
+
+      if (resp && resp.ok === false) {
+        const code = resp.error || "error";
+        if (code === "invalid_chars") {
+          setPirateMessage(
+            "Nombre inválido. Usa letras, números, espacios y acentos comunes."
+          );
+        } else if (code === "too_short") {
+          setPirateMessage("El nombre es demasiado corto.");
+        } else if (code === "too_long") {
+          setPirateMessage("El nombre es demasiado largo.");
+        } else {
+          setPirateMessage("No se pudo guardar el nombre pirata.");
         }
         return;
       }
 
-      const newName = data?.pirate_name || trimmed;
-
-      // Actualizar estado local
-      setState((prev) => ({
-        ...prev,
-        pirate_name: newName,
-      }));
-      setPirateForm(newName);
-      setNameSuccess("Nombre pirata actualizado correctamente.");
+      setState((prev) =>
+        prev
+          ? {
+              ...prev,
+              pirate_name: raw,
+            }
+          : prev
+      );
+      setPirateMessage("Nombre pirata guardado.");
     } catch (err) {
-      console.error("Error al guardar nombre pirata:", err);
-      setNameError("No se pudo guardar el nombre pirata.");
+      console.error("Error set_pirate_name:", err);
+      setPirateMessage(err.message || "No se pudo guardar el nombre pirata.");
     } finally {
-      setSavingName(false);
+      setSavingPirate(false);
     }
   }
 
-  // ---- Estados intermedios / error ----
+  // ----------------- estados intermedios -----------------
 
   if (status === "loading") {
     return (
-      <div className="page-container">
+      <div className="page-container ledger-page">
         <p className="muted">Cargando perfil…</p>
       </div>
     );
@@ -176,7 +166,7 @@ export default function Profile() {
   if (status === "error") {
     return (
       <div className="page-container ledger-page">
-        <h1 className="big">Perfil</h1>
+        <h1 className="big">Perfil de capitán</h1>
         <p className="ledger-error">
           Ocurrió un error al cargar tu perfil:
           <br />
@@ -189,35 +179,36 @@ export default function Profile() {
   if (!state) {
     return (
       <div className="page-container ledger-page">
-        <h1 className="big">Perfil</h1>
+        <h1 className="big">Perfil de capitán</h1>
         <p className="muted">
           No se encontró información de usuario. Revisa que exista el usuario
-          en la base de datos.
+          demo en la base de datos.
         </p>
       </div>
     );
   }
 
-  // ---- Render normal ----
+  // ----------------- render normal -----------------
 
   const {
     email,
     pirate_name,
-    level = 1,
-    rank = "Grumete",
-    soft_coins = 0,
-    influence_score = 0,
-    missions_completed_total = 0,
+    level,
+    rank,
+    soft_coins,
+    xpCurrent,
+    xpNext,
+    influence,
+    missionsCompleted,
   } = state;
 
-  const xpCurrent = state.xp ?? state.xp_current ?? 0;
-  const xpNext = state.xp_next ?? level * 100;
   const safeNext = xpNext > 0 ? xpNext : 1;
-
   const progress = Math.max(
     0,
     Math.min(100, Math.round((xpCurrent / safeNext) * 100))
   );
+
+  const displayPirateName = pirate_name || "Sin nombre pirata";
 
   return (
     <div className="page-container ledger-page">
@@ -231,88 +222,83 @@ export default function Profile() {
       </header>
 
       <div className="card ledger-card">
-        {/* Identidad: nombre pirata + email (el email solo lo ves tú) */}
-        <div style={{ marginBottom: 16 }}>
+        {/* Nombre pirata + email */}
+        <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 14, color: "#888" }}>Nombre pirata</div>
-          <div style={{ fontSize: 18, fontWeight: 600 }}>
-            {pirate_name || "Sin nombre pirata"}
+          <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>
+            {displayPirateName}
           </div>
+
+          <div style={{ fontSize: 13, color: "#9ca3af", marginTop: 8 }}>
+            Email (solo tú lo ves)
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 500 }}>{email}</div>
         </div>
 
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 14, color: "#888" }}>Email (solo tú lo ves)</div>
-          <div style={{ fontSize: 16, fontWeight: 500 }}>{email}</div>
-        </div>
-
-        {/* Editor de nombre pirata */}
-        <form
-          onSubmit={handleSavePirateName}
+        {/* Cambiar nombre pirata */}
+        <div
           style={{
             marginBottom: 24,
             padding: 12,
             borderRadius: 12,
-            border: "1px solid rgba(255,255,255,0.12)",
-            background: "rgba(0,0,0,0.25)",
+            background: "rgba(15,23,42,0.9)",
+            border: "1px solid rgba(148,163,184,0.25)",
           }}
         >
-          <div style={{ fontSize: 13, marginBottom: 6 }}>
+          <div style={{ fontSize: 14, marginBottom: 6 }}>
             Cambiar nombre pirata
           </div>
-          <input
-            type="text"
-            value={pirateForm}
-            onChange={(e) => {
-              setPirateForm(e.target.value);
-              setNameError("");
-              setNameSuccess("");
-            }}
-            placeholder="Ej. Capitán Shiro"
-            maxLength={32}
+          <div
             style={{
-              width: "100%",
-              padding: "8px 10px",
-              borderRadius: 8,
-              border: "1px solid rgba(255,255,255,0.15)",
-              background: "rgba(0,0,0,0.3)",
-              color: "white",
-              fontSize: 14,
-              marginBottom: 8,
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              marginBottom: 6,
             }}
-          />
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button
-              type="submit"
-              disabled={savingName}
+          >
+            <input
+              type="text"
+              placeholder="Ej. Capitán Shiro"
+              value={pirateInput}
+              onChange={(e) => setPirateInput(e.target.value)}
               style={{
-                padding: "6px 14px",
+                flex: 1,
+                minWidth: 0,
+                background: "#020617",
+                color: "#e5e7eb",
                 borderRadius: 999,
-                border: "none",
-                background: savingName ? "#4b5563" : "#22c55e",
-                color: "#020617",
+                border: "1px solid #1f2937",
+                padding: "8px 12px",
                 fontSize: 14,
-                fontWeight: 600,
-                cursor: savingName ? "default" : "pointer",
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleSavePirateName}
+              disabled={savingPirate}
+            >
+              {savingPirate ? "Guardando…" : "Guardar nombre"}
+            </button>
+          </div>
+          <div style={{ fontSize: 12, color: "#9ca3af" }}>
+            3–24 caracteres. Se permiten acentos, ñ, números y espacios.
+          </div>
+          {pirateMessage && (
+            <div
+              style={{
+                marginTop: 6,
+                fontSize: 12,
+                color: pirateMessage.includes("guardado")
+                  ? "#4ade80"
+                  : "#fca5a5",
               }}
             >
-              {savingName ? "Guardando…" : "Guardar nombre"}
-            </button>
-            <span style={{ fontSize: 11, opacity: 0.7 }}>
-              3–24 caracteres. Se permiten acentos, ñ, números y espacios.
-            </span>
-          </div>
-          {nameError && (
-            <div style={{ marginTop: 6, fontSize: 12, color: "#fecaca" }}>
-              {nameError}
+              {pirateMessage}
             </div>
           )}
-          {nameSuccess && (
-            <div style={{ marginTop: 6, fontSize: 12, color: "#bbf7d0" }}>
-              {nameSuccess}
-            </div>
-          )}
-        </form>
+        </div>
 
-        {/* Tres tarjetas: Nivel, Doblones, XP */}
+        {/* Tarjetas: Nivel / Doblones / XP */}
         <div
           style={{
             display: "grid",
@@ -372,7 +358,7 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Barra de progreso hacia siguiente nivel */}
+        {/* Barra de progreso */}
         <div style={{ marginBottom: 20 }}>
           <div
             style={{
@@ -408,7 +394,7 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Prestigio social */}
+        {/* Influencia + Misiones completadas */}
         <div
           style={{
             display: "grid",
@@ -425,9 +411,7 @@ export default function Profile() {
             }}
           >
             <div style={{ fontSize: 12, opacity: 0.7 }}>Influencia</div>
-            <div style={{ fontSize: 20, fontWeight: 600 }}>
-              {influence_score ?? 0}
-            </div>
+            <div style={{ fontSize: 20, fontWeight: 600 }}>{influence}</div>
             <div style={{ fontSize: 12, opacity: 0.7 }}>
               Sube al participar en misiones y acciones clave de tripulación.
             </div>
@@ -441,11 +425,9 @@ export default function Profile() {
               background: "rgba(0,0,0,0.15)",
             }}
           >
-            <div style={{ fontSize: 12, opacity: 0.7 }}>
-              Misiones completadas
-            </div>
+            <div style={{ fontSize: 12, opacity: 0.7 }}>Misiones completadas</div>
             <div style={{ fontSize: 20, fontWeight: 600 }}>
-              {missions_completed_total ?? 0}
+              {missionsCompleted}
             </div>
             <div style={{ fontSize: 12, opacity: 0.7 }}>
               Cuenta total de misiones que has terminado en Pirate World.

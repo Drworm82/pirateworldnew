@@ -6,36 +6,27 @@ import { subscribeToCrewRealtime } from "../lib/supaRealtime.js";
 
 const FALLBACK_EMAIL = "worm_jim@hotmail.com";
 
-// Oficios disponibles (solo el capitán los asigna) – usamos CODES reales
-const CREW_ROLE_OPTIONS = [
-  { code: "member",        label: "Miembro" },
+// ----- Helpers de identidad / nombres ---------------------------------
 
-  // Primarios
-  { code: "first_officer", label: "Primer oficial" },
-  { code: "navigator",     label: "Navegante" },
-  { code: "cook",          label: "Cocinero" },
-  { code: "shipwright",    label: "Carpintero de barcos" },
-  { code: "gunner",        label: "Artillero" },
-  { code: "doctor",        label: "Médico" },
+// Email enmascarado para privacidad (por si no hay pirate_name)
+function maskEmail(email) {
+  if (!email) return "";
+  const [user, domain] = email.split("@");
+  if (!domain) return email;
+  if (user.length <= 3) return `${user[0]}***@${domain}`;
+  return `${user.slice(0, 3)}***@${domain}`;
+}
 
-  // Secundarios
-  { code: "rigger",        label: "Aparejador" },
-  { code: "helmsman",      label: "Timonel" },
-  { code: "lookout",       label: "Vigía" },
-  { code: "chronicler",    label: "Cronista" },
-  { code: "scholar",       label: "Erudito" },
-  { code: "cabin_boy",     label: "Grumete" },
-  { code: "blacksmith",    label: "Herrero" },
-  { code: "infantry",      label: "Infantería" },
-  { code: "merchant",      label: "Mercader" },
-  { code: "musician",      label: "Músico" },
-  { code: "quartermaster", label: "Oficial de intendencia" },
-  { code: "tailor",        label: "Sastre" },
-  { code: "second_officer",label: "Segundo de a bordo" },
-  { code: "cooper",        label: "Tonelero" },
-  { code: "janitor",       label: "Conserje" },
-  { code: "pet",           label: "Mascota" },
-];
+// Nombre que se muestra en tablas de tripulación
+// 1) Usa pirate_name si existe
+// 2) Si no, usa email enmascarado
+function displayPirate(member) {
+  if (!member) return "";
+  if (member.pirate_name && member.pirate_name.trim() !== "") {
+    return member.pirate_name.trim();
+  }
+  return maskEmail(member.email || "");
+}
 
 function getCurrentEmail() {
   if (typeof window === "undefined") return FALLBACK_EMAIL;
@@ -48,29 +39,6 @@ function getCurrentEmail() {
   return email;
 }
 
-// --- PRIVACIDAD: helpers para mostrar nombre sin exponer el correo ---
-function maskEmail(email) {
-  if (!email) return "";
-  const [user, domain] = email.split("@");
-  if (!domain) return email;
-  if (user.length <= 3) return `${user[0]}***@${domain}`;
-  return `${user.slice(0, 3)}***@${domain}`;
-}
-
-function shortId(id) {
-  if (!id) return "-";
-  return id.slice(0, 8) + "…";
-}
-
-function displayPirate(member) {
-  if (!member) return "-";
-  if (member.pirate_name && member.pirate_name.trim() !== "") {
-    return member.pirate_name.trim();
-  }
-  if (member.email) return maskEmail(member.email);
-  return shortId(member.user_id);
-}
-
 // label amigable para mostrar en “Mi rol” y en tablas
 function roleLabel(userId, crew, members = []) {
   if (!crew) return "";
@@ -81,6 +49,11 @@ function roleLabel(userId, crew, members = []) {
     return member.role_name.trim();
   }
   return "Miembro";
+}
+
+function shortId(id) {
+  if (!id) return "-";
+  return id.slice(0, 8) + "…";
 }
 
 export default function CrewPage() {
@@ -587,11 +560,9 @@ export default function CrewPage() {
   const { inCrew, crew } = crewState;
   const members = crew?.members || [];
 
-  // Para mostrar nombre del capitán (pirate_name / correo enmascarado)
   const captainMember = members.find((m) => m.user_id === crew?.captain_id);
-  const captainLabel = captainMember
-    ? displayPirate(captainMember)
-    : shortId(crew?.captain_id);
+  const captainLabel =
+    displayPirate(captainMember) || shortId(crew?.captain_id);
 
   const captainId = crew?.captain_id || null;
 
@@ -866,7 +837,6 @@ export default function CrewPage() {
 
                         return (
                           <tr key={m.user_id}>
-                            {/* AQUÍ YA NO SE VE EMAIL PLANO */}
                             <td>{displayPirate(m)}</td>
                             <td>
                               {isCaptain ? (
@@ -900,11 +870,39 @@ export default function CrewPage() {
                                     fontSize: 12,
                                   }}
                                 >
-                                  {CREW_ROLE_OPTIONS.map((opt) => (
-                                    <option key={opt.code} value={opt.code}>
-                                      {opt.label}
-                                    </option>
-                                  ))}
+                                  {/* Opciones de rol se cargan del backend por code,
+                                      aquí solo usamos lo que venga en roleDraft */}
+                                  <option value="member">Miembro</option>
+                                  <option value="first_officer">
+                                    Primer oficial
+                                  </option>
+                                  <option value="navigator">Navegante</option>
+                                  <option value="cook">Cocinero</option>
+                                  <option value="shipwright">
+                                    Carpintero de barcos
+                                  </option>
+                                  <option value="gunner">Artillero</option>
+                                  <option value="doctor">Médico</option>
+                                  <option value="rigger">Aparejador</option>
+                                  <option value="helmsman">Timonel</option>
+                                  <option value="lookout">Vigía</option>
+                                  <option value="chronicler">Cronista</option>
+                                  <option value="scholar">Erudito</option>
+                                  <option value="cabin_boy">Grumete</option>
+                                  <option value="blacksmith">Herrero</option>
+                                  <option value="infantry">Infantería</option>
+                                  <option value="merchant">Mercader</option>
+                                  <option value="musician">Músico</option>
+                                  <option value="quartermaster">
+                                    Oficial de intendencia
+                                  </option>
+                                  <option value="tailor">Sastre</option>
+                                  <option value="second_officer">
+                                    Segundo de a bordo
+                                  </option>
+                                  <option value="cooper">Tonelero</option>
+                                  <option value="janitor">Conserje</option>
+                                  <option value="pet">Mascota</option>
                                 </select>
                               ) : (
                                 roleText
@@ -995,7 +993,6 @@ export default function CrewPage() {
 
                             return (
                               <tr key={m.user_id}>
-                                {/* También aquí mostramos nombre pirata */}
                                 <td>{displayPirate(m)}</td>
                                 <td>{roleLabel(m.user_id, crew, members)}</td>
                                 <td>
@@ -1008,7 +1005,6 @@ export default function CrewPage() {
                                     disabled={isCaptainRow}
                                     onChange={(e) => {
                                       const vStr = e.target.value;
-
                                       if (isCaptainRow) return;
 
                                       setSharesDraft((prev) => {
