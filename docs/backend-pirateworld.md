@@ -67,6 +67,35 @@ Campos:
 - last_visited_at (timestamptz)  
 - visits_count (int4)
 
+2.6. Tabla islands  
+Rol: Coordenadas reales de las islas del juego.  
+Campos:  
+- key (text, PK)  
+- name (text)  
+- lat (double precision)  
+- lng (double precision)  
+Usada en: ship_distance_between, ship_travel_start_v3
+
+2.7. Tabla config  
+Rol: Configuración global del juego.  
+Campos:  
+- key (text, PK)  
+- value (numeric)  
+Usada en: ship_travel_start_v3 (velocidad del barco)
+
+2.8. Tabla ship_state  
+Rol: Estado actual del barco del usuario.  
+Campos:  
+- user_id (uuid, PK → users.id)  
+- status (text) CHECK IN ('idle','traveling','arrived')  
+- from_island (text)  
+- to_island (text)  
+- started_at (timestamptz)  
+- eta_at (timestamptz)  
+- updated_at (timestamptz)  
+Constraint: ship_state_status_check_v2  
+Usada en: ship_get_state_v2, ship_travel_start_v2, ship_travel_start_v3, ship_force_arrival_v3
+
 ------------------------------------------------------------
 
 3. RPC USADAS POR EL FRONTEND
@@ -109,13 +138,29 @@ Exploración y Misiones
 
 Barco y viajes
 
-(ship_get_state)  
-Uso: estado del barco.  
+(ship_get_state_v2)  
+Uso: estado del barco con auto-completado.  
+Llamada desde: supaApi.js:411
 
-(ship_travel_start)  
-(ship_travel_progress)  
-(ship_force_arrival)  
-(ship_travel_simple)
+(ship_travel_start_v2)  
+Uso: inicio de viaje (versión legacy 10 min).  
+Llamada desde: supaApi.js:430
+
+(ship_travel_start_v3)  
+Uso: inicio de viaje con distancia real y ETA dinámico.  
+Llamada desde: supaApi.js:467
+
+(ship_force_arrival_v3)  
+Uso: forzar llegada del barco.  
+Llamada desde: supaApi.js:453
+
+(ship_distance_between)  
+Uso: calcular distancia real entre islas (Haversine).  
+Llamada desde: ship_travel_start_v3, supaApi.js:485
+
+(ship_autonomous_update)  
+Uso: auto-completar viajes expirados.  
+Llamada desde: ship_get_state_v2, ship_force_arrival_v3, ship_travel_start_v2, ship_travel_start_v3
 
 ------------------------------------------------------------
 

@@ -417,7 +417,11 @@ export async function getShipState(userId) {
     throw error;
   }
 
-  return data; // array u objeto según la función SQL
+  // Normalize array response to single object
+  if (Array.isArray(data)) {
+    return data[0] || null;
+  }
+  return data || null;
 }
 
 export async function startShipTravel(userId, toIsland) {
@@ -450,7 +454,7 @@ export async function forceShipArrival(userId) {
   const sb = _getClient();
   if (!sb) throw new Error("Supabase no configurado.");
 
-  const { data, error } = await sb.rpc("ship_force_arrival_v2", {
+  const { data, error } = await sb.rpc("ship_force_arrival_v3", {
     p_user_id: userId,
   });
 
@@ -463,6 +467,47 @@ export async function forceShipArrival(userId) {
     return data[0] || null;
   }
   return data || null;
+}
+
+export async function startShipTravelV3(userId, fromIsland, toIsland) {
+  if (!userId) throw new Error("userId requerido");
+  if (!toIsland) throw new Error("toIsland requerido");
+
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const { data, error } = await sb.rpc("ship_travel_start_v3", {
+    p_user_id: userId,
+    p_from: fromIsland,
+    p_to: toIsland,
+  });
+
+  if (error) {
+    console.error("startShipTravelV3 error:", error);
+    throw error;
+  }
+
+  return data; // Returns JSON object with travel details
+}
+
+export async function getShipDistance(fromIsland, toIsland) {
+  if (!fromIsland) throw new Error("fromIsland requerido");
+  if (!toIsland) throw new Error("toIsland requerido");
+
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const { data, error } = await sb.rpc("ship_distance_between", {
+    p_from: fromIsland,
+    p_to: toIsland,
+  });
+
+  if (error) {
+    console.error("getShipDistance error:", error);
+    throw error;
+  }
+
+  return Number(data || 0);
 }
 
 // -----------------------------------------------
