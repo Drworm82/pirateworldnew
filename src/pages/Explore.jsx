@@ -1,11 +1,17 @@
 // src/pages/Explore.jsx
 import React, { useEffect, useState, useRef } from "react";
-import { getSupa, ensureUser } from "../lib/supaApi.js";
+import {
+  getSupa,
+  ensureUser,
+  getShipState,
+  startShipTravel,
+  forceShipArrival,
+} from "../lib/supaApi.js";
 import { toast } from "react-hot-toast";
 
 // --- Config de viaje / mapa ----------------------------------------
 
-const TRAVEL_SECONDS_DEFAULT = 300; // 5 min dev; el backend puede ignorar o ajustar
+const TRAVEL_SECONDS_DEFAULT = 600; // 10 minutos como define el backend
 const AD_REDUCTION_SECONDS = 15; // lo que recorta ver un anuncio
 
 // Islas basadas en tus coordenadas reales
@@ -96,6 +102,36 @@ function findIslandByNameOrKey(value) {
   );
 }
 
+// 👇 Normalizador genérico de respuestas del barco
+function normalizeShipState(raw) {
+  if (!raw) return null;
+
+  let data = raw;
+
+  // Si viene como array: [ {...} ]
+  if (Array.isArray(data)) {
+    data = data[0] ?? null;
+  }
+
+  // Si viene anidado: { ship_state: {...} }
+  if (data && data.ship_state) {
+    data = data.ship_state;
+  }
+
+  // Debug de campos esperados
+  if (data && typeof data === "object") {
+    console.log("[Explore] normalizeShipState valid fields:", {
+      status: data.status,
+      from_island: data.from_island,
+      to_island: data.to_island,
+      started_at: data.started_at,
+      eta_at: data.eta_at,
+      server_now: data.server_now,
+    });
+  }
+
+  return data || null;
+}
 // -------------------------------------------------------------------
 
 export default function ExplorePage() {
@@ -103,13 +139,13 @@ export default function ExplorePage() {
   const [initialError, setInitialError] = useState("");
   const [user, setUser] = useState(null);
 
-  const [shipState, setShipState] = useState({
-    status: "idle",
-    currentLocation: "Desconocida",
-    destination: null,
-    progressPercent: 0,
-    remainingSeconds: 0,
-  });
+  const [shipStatus, setShipStatus] = useState("idle");
+  const [fromIsland, setFromIsland] = useState(null);
+  const [toIsland, setToIsland] = useState(null);
+  const [startedAt, setStartedAt] = useState(null);
+  const [etaAt, setEtaAt] = useState(null);
+  const [remainingTime, setRemainingTime] = useState(0);
+  const [serverNow, setServerNow] = useState(null);
 
   const [visitedKeys, setVisitedKeys] = useState(new Set());
   const [loadingTravelAction, setLoadingTravelAction] = useState(false);
@@ -118,30 +154,38 @@ export default function ExplorePage() {
   const lastShipStatusRef = useRef(null);
   const pollTimerRef = useRef(null);
 
+
   // ---------------------- Carga inicial -----------------------------
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadInitial() {
+      console.log("[Explore] loadInitial() start");
       setLoading(true);
       setInitialError("");
 
       try {
-        const supa = getSupa();
-        const { user: u } = await ensureUser(supa);
+        // Usuario demo
+        const { user: u } = await ensureUser("worm_jim@hotmail.com");
         if (!u) throw new Error("No se pudo obtener el usuario.");
 
         if (cancelled) return;
 
+        console.log("[Explore] user OK", u.id);
         setUser(u);
 
-        await Promise.all([loadShipState(supa, u.id), loadDiscovery(supa, u.id)]);
+        await loadShipState(u.id);
+        await loadDiscovery(u.id);
+
+        console.log("[Explore] loadInitial() done");
         setLoading(false);
       } catch (err) {
         console.error("[Explore] Error inicial:", err);
         if (!cancelled) {
-          setInitialError(err.message || "Ocurrió un error al cargar la página.");
+          setInitialError(
+            err.message || "Ocurrió un error al cargar la página."
+          );
           setLoading(false);
         }
       }
@@ -158,16 +202,31 @@ export default function ExplorePage() {
 
   useEffect(() => {
     clearPollTimer();
-    if (!user || shipState.status !== "traveling") return;
+    if (!user || shipStatus !== "traveling") return;
 
-    const supa = getSupa();
     pollTimerRef.current = setInterval(() => {
-      refreshTravelProgress(supa, user.id);
-    }, 3000);
+      loadShipState();
+    }, 5000);
 
     return clearPollTimer;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shipState.status, user?.id]);
+  }, [shipStatus, user?.id]);
+
+  // ---------------------- Contador local 1s --------------------------
+// Este efecto solo vive mientras el barco está viajando.
+// Baja remainingTime de 1 en 1 segundo en el frontend.
+
+useEffect(() => {
+  if (shipStatus !== "traveling") return;
+
+  const intervalId = setInterval(() => {
+    setRemainingTime((prev) => {
+      if (!prev || prev <= 0) return 0;
+      return prev - 1;
+    });
+  }, 1000);
+
+  return () => clearInterval(intervalId);
+}, [shipStatus]);
 
   function clearPollTimer() {
     if (pollTimerRef.current) {
@@ -178,106 +237,77 @@ export default function ExplorePage() {
 
   // ---------------------- Helpers de carga --------------------------
 
-  async function loadShipState(supa, userId) {
+  async function loadShipState(userIdOverride) {
     try {
-      const { data, error } = await supa.rpc("ship_get_state", {
-        p_user_id: userId,
-      });
+      const effectiveUserId = userIdOverride ?? user?.id;
 
-      if (error) throw error;
-      if (!data || data.ok === false) {
-        throw new Error(data?.error || "No se pudo obtener el estado del barco.");
+      if (!effectiveUserId) {
+        console.warn("[Explore] loadShipState llamado sin userId");
+        return;
+      }
+
+      console.log("[Explore] loadShipState, userId =", effectiveUserId);
+      const raw = await getShipState(effectiveUserId);
+      console.log("[Explore] ship state raw:", raw);
+
+      const data = normalizeShipState(raw);
+      console.log("[Explore] ship state normalized:", data);
+
+      if (!data) {
+        throw new Error("No se pudo obtener el estado del barco.");
       }
 
       const nextStatus = data.status || "idle";
 
-      const nextState = {
-        status: nextStatus,
-        currentLocation: data.current_location || "Desconocida",
-        destination: data.destination || null,
-        origin: data.origin || null,
-        departureTime: data.departure_time || null,
-        arrivalTime: data.arrival_time || null,
-        progressPercent: 0,
-        remainingSeconds: 0,
-      };
+      setShipStatus(nextStatus);
+      setFromIsland(data.from_island ?? null);
+      setToIsland(data.to_island ?? null);
+      setStartedAt(data.started_at ?? null);
+      setEtaAt(data.eta_at ?? null);
+      setServerNow(data.server_now ?? null);
 
-      // Detectar llegada (traveling -> idle)
-      if (lastShipStatusRef.current === "traveling" && nextStatus === "idle") {
-        const loc = nextState.currentLocation || "tu destino";
-        toast.success(`Tu barco ha llegado a ${loc}.`);
+      if (nextStatus === "traveling" && data.eta_at && data.server_now) {
+        const etaMs = Date.parse(data.eta_at);
+        const nowMs = Date.parse(data.server_now);
+        if (!Number.isNaN(etaMs) && !Number.isNaN(nowMs)) {
+          const diffSec = Math.max(0, Math.round((etaMs - nowMs) / 1000));
+          setRemainingTime(diffSec);
+        } else {
+          setRemainingTime(0);
+        }
+      } else {
+        setRemainingTime(0);
+      }
+
+      if (
+        lastShipStatusRef.current === "traveling" &&
+        nextStatus === "arrived"
+      ) {
+        toast.success(
+          `Tu barco ha llegado a ${data.to_island || "tu destino"}.`
+        );
         document.title = "⛵ PirateWorld – En puerto";
-        // refrescamos descubrimientos al llegar
-        await loadDiscovery(supa, userId);
+        if (effectiveUserId) {
+          await loadDiscovery(effectiveUserId);
+        }
       }
 
       lastShipStatusRef.current = nextStatus;
 
-      // Cambiar título según estado
       if (nextStatus === "traveling") {
         document.title = "⛵ PirateWorld – En viaje…";
       } else {
         document.title = "⛵ PirateWorld – En puerto";
       }
-
-      // Si está viajando, pedimos progreso
-      if (nextStatus === "traveling") {
-        const progress = await refreshTravelProgress(supa, userId, nextState);
-        setShipState(progress);
-      } else {
-        setShipState(nextState);
-      }
     } catch (err) {
-      console.error("ship_get_state error:", err);
+      console.error("loadShipState error:", err);
       throw err;
     }
   }
 
-  async function refreshTravelProgress(supa, userId, baseStateOverride = null) {
-    const base = baseStateOverride || shipState;
-
+  async function loadDiscovery(userId) {
     try {
-      const { data, error } = await supa.rpc("ship_travel_progress", {
-        p_user_id: userId,
-      });
-
-      if (error) throw error;
-      if (!data || data.ok === false) {
-        // si el backend dice que ya no está viajando, mejor recargamos todo
-        if (data?.error === "no_active_travel") {
-          await loadShipState(supa, userId);
-        }
-        return base;
-      }
-
-      const percent = Math.min(
-        100,
-        Math.max(0, (data.percent || 0) * 100)
-      );
-
-      const remaining = data.remaining_seconds ?? 0;
-
-      const merged = {
-        ...base,
-        status: data.traveling ? "traveling" : "idle",
-        currentLocation: data.origin || base.currentLocation,
-        destination: data.destination || base.destination,
-        departureTime: data.departure_time || base.departureTime,
-        arrivalTime: data.arrival_time || base.arrivalTime,
-        progressPercent: percent,
-        remainingSeconds: remaining,
-      };
-
-      setShipState(merged);
-      return merged;
-    } catch (err) {
-      console.error("ship_travel_progress error:", err);
-      return baseStateOverride || shipState;
-    }
-  }
-
-  async function loadDiscovery(supa, userId) {
-    try {
+      const supa = getSupa();
       const { data, error } = await supa
         .from("user_island_discovery")
         .select("island_key")
@@ -294,46 +324,39 @@ export default function ExplorePage() {
       console.error("user_island_discovery error:", err);
     }
   }
-
-  // ---------------------- Acciones de usuario -----------------------
+// ---------------------- Acciones de usuario -----------------------
 
   async function handleTravel(islandKey) {
     if (!user || !user.id) {
       toast.error("No se encontró el usuario.");
       return;
     }
-    const supa = getSupa();
+
     const island = ISLANDS.find((i) => i.key === islandKey);
     if (!island) {
       toast.error("Isla desconocida.");
       return;
     }
 
-    if (shipState.status === "traveling") {
+    if (shipStatus === "traveling") {
       toast("Ya estás navegando, espera a llegar.", { icon: "⛵" });
       return;
     }
 
     try {
       setLoadingTravelAction(true);
-
-      const { data, error } = await supa.rpc("ship_travel_start", {
-        p_destination: island.name,
-        p_duration_seconds: TRAVEL_SECONDS_DEFAULT,
-        p_user_id: user.id,
+      console.log("[Explore] startShipTravel →", {
+        userId: user.id,
+        to: island.name,
       });
 
-      if (error) throw error;
-      if (!data || data.ok === false) {
-        throw new Error(
-          data?.error || "No se pudo iniciar el viaje del barco."
-        );
-      }
+      const raw = await startShipTravel(user.id, island.name);
+      console.log("[Explore] startShipTravel raw:", raw);
 
       toast.success(`Zarpando hacia ${island.name}…`);
-      await loadShipState(supa, user.id);
+      await loadShipState(user.id);
     } catch (err) {
-      console.error("ship_travel_start error:", err);
+      console.error("startShipTravel error:", err);
       toast.error(err.message || "No se pudo iniciar el viaje.");
     } finally {
       setLoadingTravelAction(false);
@@ -342,70 +365,73 @@ export default function ExplorePage() {
 
   async function handleForceArrival() {
     if (!user || !user.id) return;
-    const supa = getSupa();
 
     try {
-      const { data, error } = await supa.rpc("ship_force_arrival", {
-        p_user_id: user.id,
-      });
+      const raw = await forceShipArrival(user.id);
+      console.log("[Explore] forceShipArrival raw:", raw);
 
-      if (error) throw error;
-      if (!data || data.ok === false) {
-        throw new Error(
-          data?.error || "No se pudo forzar la llegada del barco."
-        );
+      if (!raw) {
+        throw new Error("No se pudo forzar la llegada del barco.");
       }
 
       toast.success("Llegada forzada (DEV).");
-      await loadShipState(supa, user.id);
+      await loadShipState(user.id);
     } catch (err) {
-      console.error("ship_force_arrival error:", err);
+      console.error("forceShipArrival error:", err);
       toast.error("No se pudo forzar la llegada (DEV).");
     }
   }
 
   async function handleWatchAdDuringTravel() {
-    if (!user || !user.id) {
-      toast.error("No se encontró el usuario.");
-      return;
-    }
-    if (shipState.status !== "traveling") {
-      toast("Solo puedes ver este anuncio mientras el barco navega.", {
-        icon: "⛵",
-      });
-      return;
-    }
-
-    try {
-      setWatchingAd(true);
-      const supa = getSupa();
-
-      const { data, error } = await supa.rpc("ad_watch_during_travel", {
-        p_user_id: user.id,
-        p_soft_coins: 1,
-        p_xp: 5,
-        p_seconds: AD_REDUCTION_SECONDS,
-      });
-
-      if (error) throw error;
-      if (!data || data.ok === false) {
-        throw new Error(
-          data?.error || "No se pudo registrar el anuncio."
-        );
-      }
-
-      toast.success(
-        "Has ganado +1 doblón, algo de XP y tu barco acelera un poco."
-      );
-
-      await loadShipState(supa, user.id);
-    } catch (err) {
-      console.error("ad_watch_during_travel error:", err);
-      toast.error("No se pudo procesar el anuncio.");
-    } finally {
-      setWatchingAd(false);
-    }
+  if (!user || !user.id) {
+    toast.error("No se encontró el usuario.");
+    return;
   }
+  if (shipStatus !== "traveling") {
+    toast("Solo puedes ver este anuncio mientras el barco navega.", {
+      icon: "⛵",
+    });
+    return;
+  }
+
+  try {
+    setWatchingAd(true);
+    const supa = getSupa();
+
+    const { data, error } = await supa.rpc("ad_watch_during_travel", {
+      p_user_id: user.id,
+      p_soft_coins: 1,
+      p_xp: 5,
+      p_seconds: AD_REDUCTION_SECONDS,
+    });
+
+    console.log("[Explore] ad_watch_during_travel:", { data, error });
+
+    if (error) throw error;
+    if (!data || data.ok === false) {
+      throw new Error(data?.error || "No se pudo registrar el anuncio.");
+    }
+
+    // 🔽 Actualizamos el contador local inmediatamente
+    setRemainingTime((prev) => {
+      const safePrev = typeof prev === "number" ? prev : 0;
+      return Math.max(0, safePrev - AD_REDUCTION_SECONDS);
+    });
+
+    toast.success(
+      "Has ganado +1 doblón, algo de XP y tu barco acelera un poco."
+    );
+
+    // Luego sincronizamos con el backend (por si hay diferencia)
+    await loadShipState(user.id);
+  } catch (err) {
+    console.error("ad_watch_during_travel error:", err);
+    toast.error("No se pudo procesar el anuncio.");
+  } finally {
+    setWatchingAd(false);
+  }
+}
+
 
   // ---------------------- Render helpers ----------------------------
 
@@ -418,34 +444,39 @@ export default function ExplorePage() {
   }
 
   function renderShipStatus() {
-    if (shipState.status === "traveling") return "Navegando…";
-    return "En puerto (idle)";
+    if (shipStatus === "traveling") return "Viajando";
+    if (shipStatus === "arrived") return "Ha llegado";
+    if (shipStatus === "idle") return "En puerto";
+    return "En puerto";
   }
 
   function getShipLocationLabel() {
-    return shipState.currentLocation || "Desconocida";
+    if (shipStatus === "traveling") {
+      return toIsland || "Destino desconocido";
+    }
+    return fromIsland || "Puerto principal";
   }
 
   function getShipDestinationLabel() {
-    if (shipState.status !== "traveling") return "—";
-    return shipState.destination || "Destino desconocido";
+    if (shipStatus !== "traveling") return "—";
+    return toIsland || "Destino desconocido";
   }
 
   function isIslandVisited(i) {
     return (
       visitedKeys.has(i.key) ||
-      visitedKeys.has(i.name) // por si quedó algo viejo
+      visitedKeys.has(i.name)
     );
   }
 
   function getShipIslandForMiniMap() {
-    const loc = shipState.currentLocation;
+    const loc = fromIsland;
     if (!loc) return null;
     const match = findIslandByNameOrKey(loc);
     return match;
   }
 
-  // ---------------------- Render principal --------------------------
+    // ---------------------- Render principal --------------------------
 
   return (
     <div className="page-container">
@@ -453,14 +484,15 @@ export default function ExplorePage() {
         <h1 className="big">Explorar el mar</h1>
         <p className="ledger-subtitle">
           Navega entre puntos reales de la ciudad como si fueran{" "}
-          <strong>islas pirata</strong>. Tu barco viaja más rápido que en la vida
-          real, pero usa coordenadas reales para que aprendas a leer el mapa del
-          mundo.
+          <strong>islas pirata</strong>.
         </p>
       </header>
 
       {initialError && (
-        <div className="card ledger-card ledger-error" style={{ marginBottom: 16 }}>
+        <div
+          className="card ledger-card ledger-error"
+          style={{ marginBottom: 16 }}
+        >
           <p>Ocurrió un error:</p>
           <code>{initialError}</code>
         </div>
@@ -480,92 +512,162 @@ export default function ExplorePage() {
             <p style={{ marginBottom: 4 }}>
               <strong>Ubicación actual:</strong> {getShipLocationLabel()}
             </p>
-            <p style={{ marginBottom: 12 }}>
-              <strong>Rumbo a:</strong> {getShipDestinationLabel()}
-            </p>
 
-            <div
-              className="progress-bar-wrap"
-              style={{ marginTop: 8, marginBottom: 4 }}
-            >
-              <div className="progress-bar-bg">
+            {shipStatus === "traveling" && (
+              <>
+                <p style={{ marginBottom: 4 }}>
+                  <strong>Desde:</strong> {fromIsland || "Origen desconocido"}
+                </p>
+
+                <p style={{ marginBottom: 4 }}>
+                  <strong>Hacia:</strong> {toIsland || "Destino desconocido"}
+                </p>
+
+                <p style={{ marginBottom: 12 }}>
+                  <strong>Llegada estimada:</strong>{" "}
+                  {etaAt
+                    ? new Date(etaAt).toLocaleString("es-MX", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        day: "2-digit",
+                        month: "2-digit",
+                      })
+                    : "Desconocida"}
+                </p>
+              </>
+            )}
+
+            {shipStatus !== "traveling" && (
+              <p style={{ marginBottom: 12 }}>
+                <strong>Rumbo a:</strong> {getShipDestinationLabel()}
+              </p>
+            )}
+
+            {shipStatus === "traveling" && (
+              <>
+                {/* Barra de progreso */}
                 <div
-                  className="progress-bar-fill"
-                  style={{ width: `${shipState.progressPercent ?? 0}%` }}
-                />
-              </div>
-              <div
-                className="progress-bar-label"
-                style={{ fontSize: 12, marginTop: 4 }}
-              >
-                Progreso del viaje:{" "}
-                <strong>{Math.round(shipState.progressPercent ?? 0)}%</strong>
-                {shipState.status === "traveling" && (
-                  <> · Tiempo restante aprox:{" "}
-                    {formatSeconds(shipState.remainingSeconds)}</>
-                )}
-              </div>
-            </div>
+                  className="progress-bar-wrap"
+                  style={{ marginTop: 8, marginBottom: 4 }}
+                >
+                  <div className="progress-bar-bg">
+                    <div
+                      className="progress-bar-fill"
+                      style={{
+                        width: `${Math.max(
+                          0,
+                          Math.min(
+                            100,
+                            ((TRAVEL_SECONDS_DEFAULT - remainingTime) /
+                              TRAVEL_SECONDS_DEFAULT) *
+                              100
+                          )
+                        )}%`,
+                      }}
+                    />
+                  </div>
 
-            {shipState.status === "traveling" && (
-              <div
-                className="card"
-                style={{
-                  marginTop: 12,
-                  padding: 12,
-                  background:
-                    "linear-gradient(90deg, rgba(12,26,48,1) 0%, rgba(18,40,70,1) 100%)",
-                  borderRadius: 12,
-                  border: "1px solid rgba(80, 140, 255, 0.4)",
-                }}
-              >
-                <p style={{ marginBottom: 8, fontSize: 14 }}>
-                  Tu barco va en ruta a{" "}
-                  <strong>{getShipDestinationLabel()}</strong>. Mientras
-                  navega, puedes ver un anuncio para ganar{" "}
-                  <strong>+1 doblón</strong> y un poco de <strong>XP</strong>, y
-                  además acelerar ligeramente este viaje.
+                  <div
+                    className="progress-bar-label"
+                    style={{ fontSize: 12, marginTop: 4 }}
+                  >
+                    Tiempo restante:{" "}
+                    <strong>{formatSeconds(remainingTime)}</strong>
+                  </div>
+                </div>
+
+                {/* Anuncio durante viaje */}
+                <div
+                  className="card"
+                  style={{
+                    marginTop: 12,
+                    padding: 12,
+                    background:
+                      "linear-gradient(90deg, rgba(12,26,48,1) 0%, rgba(18,40,70,1) 100%)",
+                    borderRadius: 12,
+                    border: "1px solid rgba(80, 140, 255, 0.4)",
+                  }}
+                >
+                  <p style={{ marginBottom: 8, fontSize: 14 }}>
+                    Tu barco va en ruta a{" "}
+                    <strong>{getShipDestinationLabel()}</strong>. Mientras
+                    navega, puedes ver un anuncio para ganar{" "}
+                    <strong>+1 doblón</strong> y algo de <strong>XP</strong>, y
+                    además acelerar ligeramente el viaje.
+                  </p>
+
+                  <button
+                    onClick={handleWatchAdDuringTravel}
+                    disabled={watchingAd}
+                    className="btn btn-primary"
+                    style={{
+                      padding: "6px 16px",
+                      borderRadius: 999,
+                      fontSize: 14,
+                      opacity: watchingAd ? 0.7 : 1,
+                      cursor: watchingAd ? "wait" : "pointer",
+                    }}
+                  >
+                    {watchingAd
+                      ? "Registrando anuncio..."
+                      : "Ver anuncio (+1 doblón)"}
+                  </button>
+
+                  <p
+                    style={{
+                      marginTop: 6,
+                      fontSize: 11,
+                      opacity: 0.7,
+                    }}
+                  >
+                    Tip: más adelante podrás ver videos reales para reducir el
+                    tiempo de navegación.
+                  </p>
+                </div>
+
+                {/* Botón dev */}
+                <div style={{ marginTop: 12 }}>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={handleForceArrival}
+                    disabled={!user}
+                  >
+                    Forzar llegada (DEV)
+                  </button>
+                </div>
+              </>
+            )}
+
+            {shipStatus === "arrived" && (
+              <div style={{ marginTop: 12 }}>
+                <p style={{ marginBottom: 8, color: "#10b981" }}>
+                  ✅ Tu barco ha llegado a <strong>{toIsland}</strong>
                 </p>
 
                 <button
-                  onClick={handleWatchAdDuringTravel}
-                  disabled={watchingAd}
                   className="btn btn-primary"
-                  style={{
-                    padding: "6px 16px",
-                    borderRadius: 999,
-                    fontSize: 14,
-                    opacity: watchingAd ? 0.7 : 1,
-                    cursor: watchingAd ? "wait" : "pointer",
+                  onClick={async () => {
+                    try {
+                      await forceShipArrival(user.id);
+                      toast.success("Viaje finalizado. ¡Bienvenido a puerto!");
+                      await loadShipState(user.id);
+                    } catch (err) {
+                      toast.error("No se pudo finalizar el viaje");
+                    }
                   }}
                 >
-                  {watchingAd
-                    ? "Registrando anuncio..."
-                    : "Ver anuncio (+1 doblón)"}
+                  Atracar / Finalizar viaje
                 </button>
-
-                <p
-                  style={{
-                    marginTop: 6,
-                    fontSize: 11,
-                    opacity: 0.7,
-                  }}
-                >
-                  Tip: más adelante aquí podrás ver anuncios reales mientras
-                  esperas el tiempo de viaje.
-                </p>
               </div>
             )}
 
-            <div style={{ marginTop: 12 }}>
-              <button
-                className="btn btn-secondary"
-                onClick={handleForceArrival}
-                disabled={!user}
-              >
-                Forzar llegada (DEV)
-              </button>
-            </div>
+            {shipStatus === "idle" && (
+              <div style={{ marginTop: 12 }}>
+                <p style={{ color: "#6b7280", fontSize: 14 }}>
+                  ⚓ Tu barco está en puerto. Selecciona una isla para zarpar.
+                </p>
+              </div>
+            )}
           </>
         )}
       </section>
@@ -573,11 +675,11 @@ export default function ExplorePage() {
       {/* Mini-mapa pirata */}
       <section className="card ledger-card" style={{ marginBottom: 24 }}>
         <h2 className="section-title">Mini-mapa pirata</h2>
+
         <p className="muted" style={{ marginBottom: 12, fontSize: 13 }}>
           Pulsa una isla para zarpar. Las islas{" "}
           <span style={{ fontWeight: 600 }}>ya visitadas</span> brillan en
-          dorado; las demás aparecen más discretas, como si el mapa estuviera
-          apenas bocetado.
+          dorado.
         </p>
 
         <div
@@ -599,14 +701,14 @@ export default function ExplorePage() {
 
             const isCurrent =
               getShipIslandForMiniMap()?.key === island.key &&
-              shipState.status !== "traveling";
+              shipStatus !== "traveling";
 
             return (
               <button
                 key={island.key}
                 type="button"
                 onClick={() => handleTravel(island.key)}
-                disabled={loadingTravelAction}
+                disabled={loadingTravelAction || shipStatus === "traveling"}
                 style={{
                   position: "absolute",
                   top: `${top}%`,
@@ -622,11 +724,13 @@ export default function ExplorePage() {
                     ? "radial-gradient(circle, rgba(250,204,21,0.18) 0, rgba(15,23,42,0.95) 60%)"
                     : "rgba(15,23,42,0.95)",
                   color: visited ? "#fde68a" : "#bfdbfe",
-                  cursor: "pointer",
+                  cursor:
+                    shipStatus === "traveling" ? "not-allowed" : "pointer",
                   boxShadow: visited
                     ? "0 0 16px rgba(250,204,21,0.35)"
                     : "0 0 8px rgba(37,99,235,0.35)",
                   whiteSpace: "nowrap",
+                  opacity: shipStatus === "traveling" ? 0.6 : 1,
                 }}
               >
                 {isCurrent ? "⚓ " : "⛵ "}
@@ -637,14 +741,12 @@ export default function ExplorePage() {
         </div>
       </section>
 
-      {/* Tabla de islas conocidas */}
+      {/* Tabla de islas */}
       <section className="card ledger-card">
         <h2 className="section-title">Islas conocidas</h2>
+
         <p className="muted" style={{ marginBottom: 12, fontSize: 13 }}>
-          Toca una isla en la tabla o en el minimapa para zarpar. Más adelante,
-          los mapas se podrán comprar por isla o región, algunos serán falsos y
-          solo al llegar descubrirás la verdad, y el pergamino se irá dibujando
-          poco a poco.
+          Toca una isla en la tabla o en el minimapa para zarpar.
         </p>
 
         <div className="ledger-table-wrap">
@@ -658,12 +760,13 @@ export default function ExplorePage() {
                   <th>Acción</th>
                 </tr>
               </thead>
+
               <tbody>
                 {ISLANDS.map((island) => {
                   const visited = isIslandVisited(island);
                   const isCurrent =
                     getShipIslandForMiniMap()?.key === island.key &&
-                    shipState.status !== "traveling";
+                    shipStatus !== "traveling";
 
                   return (
                     <tr key={island.key}>
@@ -674,7 +777,9 @@ export default function ExplorePage() {
                           {island.description}
                         </span>
                       </td>
+
                       <td>{island.region}</td>
+
                       <td>
                         {island.mapState}
                         {visited && (
@@ -683,13 +788,16 @@ export default function ExplorePage() {
                           </span>
                         )}
                       </td>
+
                       <td>
                         {isCurrent ? (
                           <span className="badge">Aquí estás</span>
                         ) : (
                           <button
                             className="btn btn-primary"
-                            disabled={loadingTravelAction}
+                            disabled={
+                              loadingTravelAction || shipStatus === "traveling"
+                            }
                             onClick={() => handleTravel(island.key)}
                           >
                             Zarpar
@@ -705,9 +813,8 @@ export default function ExplorePage() {
         </div>
 
         <p className="muted" style={{ marginTop: 8, fontSize: 12 }}>
-          Futuro: podrás comprar mapas por isla o región, algunos serán falsos y
-          solo al llegar descubrirás la verdad. El minimapa crecerá hasta cubrir
-          colonias completas del mundo real.
+          Futuro: podrás comprar mapas por isla o región, algunos falsos y solo
+          al llegar descubrirás cuál era verdadero.
         </p>
       </section>
     </div>

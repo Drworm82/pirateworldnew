@@ -395,3 +395,87 @@ export async function resolveExploration({ userId, runId, depositTo = "wallet" }
   if (error) throw error;
   return data; // { ok, coins, soft_coins, loot_json, status, ... }
 }
+
+// -----------------------------------------------
+// Ship Travel System
+// -----------------------------------------------
+export async function getShipState(userId) {
+  if (!userId) {
+    console.error("getShipState: userId es requerido");
+    throw new Error("user_id is required");
+  }
+
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const { data, error } = await sb.rpc("ship_get_state_v2", {
+    p_user_id: userId, // nombre EXACTO del parámetro en SQL
+  });
+
+  if (error) {
+    console.error("getShipState error:", error);
+    throw error;
+  }
+
+  return data; // array u objeto según la función SQL
+}
+
+export async function startShipTravel(userId, toIsland) {
+  if (!userId) throw new Error("userId requerido");
+  if (!toIsland) throw new Error("toIsland requerido");
+
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const { data, error } = await sb.rpc("ship_travel_start_v2", {
+    p_user_id: userId,
+    p_to_island: toIsland,
+  });
+
+  if (error) {
+    console.error("startShipTravel error:", error);
+    throw error;
+  }
+
+  // La RPC puede devolver un array; normalizamos a un solo objeto o null
+  if (Array.isArray(data)) {
+    return data[0] || null;
+  }
+  return data || null;
+}
+
+export async function forceShipArrival(userId) {
+  if (!userId) throw new Error("userId requerido");
+
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const { data, error } = await sb.rpc("ship_force_arrival_v2", {
+    p_user_id: userId,
+  });
+
+  if (error) {
+    console.error("forceShipArrival error:", error);
+    throw error;
+  }
+
+  if (Array.isArray(data)) {
+    return data[0] || null;
+  }
+  return data || null;
+}
+
+// -----------------------------------------------
+// Ship travel: bonus por ver anuncio durante el viaje
+// -----------------------------------------------
+export async function shipTravelAdReward(userId) {
+  if (!userId) throw new Error("userId requerido");
+  const sb = _getClient();
+  if (!sb) throw new Error("Supabase no configurado.");
+
+  const { data, error } = await sb.rpc("ship_travel_ad_reward", {
+    p_user_id: userId,
+  });
+  if (error) throw error;
+  return data; // { ok, reward_coins, reward_xp, reduced_seconds, ... }
+}
