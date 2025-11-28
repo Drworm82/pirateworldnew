@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "cron": [
+    {
+      "name": "ship-autonav-every-minute",
+      "schedule": "* * * * *"
+    }
+  ]
+}

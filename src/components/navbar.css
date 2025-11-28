@@ -1,0 +1,38 @@
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 65px;
+  background: rgba(10, 10, 20, 0.65);
+  backdrop-filter: blur(16px);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 4000;
+}
+
+.nav-btn {
+  color: #ddd;
+  font-size: 13px;
+  text-decoration: none;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  transition: all 0.25s ease;
+}
+
+.nav-btn.active {
+  color: #7cc4ff;
+  background: rgba(70, 130, 255, 0.2);
+  transform: translateY(-4px);
+}
+
+.nav-icon {
+  font-size: 20px;
+}

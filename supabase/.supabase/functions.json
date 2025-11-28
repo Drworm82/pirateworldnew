@@ -1,0 +1,9 @@
+{
+  "schedule": [
+    {
+      "name": "ship-autonav",
+      "cron": "* * * * *",
+      "endpoint": "ship_autonav"
+    }
+  ]
+}

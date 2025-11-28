@@ -1,11 +1,49 @@
 // src/pages/Leaderboard.jsx
 import React, { useEffect, useState } from "react";
-import { getSupa } from "../lib/supaApi.js";
+import { getSupa, ensureUser } from "../lib/supaApi.js";
+
+// Mismo helper que usamos en Crew.jsx
+const FALLBACK_EMAIL = "worm_jim@hotmail.com";
+
+function getCurrentEmail() {
+  if (typeof window === "undefined") return FALLBACK_EMAIL;
+
+  const fromDemo = window.localStorage.getItem("demoEmail");
+  const fromDemoUser = window.localStorage.getItem("demoUserEmail");
+  const fromLegacy = window.localStorage.getItem("userEmail");
+
+  return fromDemo || fromDemoUser || fromLegacy || FALLBACK_EMAIL;
+}
+
+function maskEmail(email) {
+  if (!email) return "";
+  const [user, domain] = email.split("@");
+  if (!domain) return email;
+
+  if (user.length <= 3) {
+    return `${user[0]}***@${domain}`;
+  }
+  return `${user.slice(0, 3)}***@${domain}`;
+}
+
+function displayName(row) {
+  const pirate = (row?.pirate_name || "").trim();
+  if (pirate) return pirate;
+  return maskEmail(row?.email || "");
+}
+
+function medalForIndex(idx) {
+  if (idx === 0) return "🥇";
+  if (idx === 1) return "🥈";
+  if (idx === 2) return "🥉";
+  return "";
+}
 
 export default function Leaderboard() {
   const [rows, setRows] = useState([]);
   const [status, setStatus] = useState("loading"); // loading | ready | empty | error
   const [errorMsg, setErrorMsg] = useState("");
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -17,16 +55,40 @@ export default function Leaderboard() {
       try {
         const supa = getSupa();
 
-        // 1) Top 10 por doblones
-        const { data: users, error: errU } = await supa
-          .from("users")
-          .select("id, email, soft_coins, created_at")
-          .order("soft_coins", { ascending: false })
-          .limit(10);
+        // 1) Identificar usuario actual (para resaltar su fila)
+        let myId = null;
+        try {
+          const email = getCurrentEmail();
+          const { user } = await ensureUser(email);
+          myId = user?.id ?? null;
+        } catch {
+          // si falla, simplemente no resaltamos
+          myId = null;
+        }
+        if (!cancelled) {
+          setCurrentUserId(myId);
+        }
 
-        if (errU) throw errU;
+        // 2) Top 10 por nivel + XP desde la función leaderboard_top_xp()
+        const { data, error } = await supa.rpc("leaderboard_top_xp");
 
-        if (!users || users.length === 0) {
+        if (error) {
+          throw error;
+        }
+
+        let list = data || [];
+
+        // Por si Supabase devolviera array con wrapper tipo { leaderboard_top_xp: { ... } }
+        if (
+          Array.isArray(list) &&
+          list.length > 0 &&
+          list[0] &&
+          list[0].leaderboard_top_xp
+        ) {
+          list = list.map((row) => row.leaderboard_top_xp);
+        }
+
+        if (!list || list.length === 0) {
           if (!cancelled) {
             setRows([]);
             setStatus("empty");
@@ -34,35 +96,8 @@ export default function Leaderboard() {
           return;
         }
 
-        const ids = users.map((u) => u.id);
-
-        // 2) Stats de cada usuario (nivel + rango)
-        const { data: stats, error: errS } = await supa
-          .from("user_stats")
-          .select("user_id, level, rank")
-          .in("user_id", ids);
-
-        if (errS) throw errS;
-
-        const mapStats = new Map();
-        (stats || []).forEach((s) => {
-          mapStats.set(s.user_id, {
-            level: s.level,
-            rank: s.rank,
-          });
-        });
-
-        const merged = users.map((u) => {
-          const st = mapStats.get(u.id) || {};
-          return {
-            ...u,
-            level: st.level ?? 1,
-            rank: st.rank ?? "Novato",
-          };
-        });
-
         if (!cancelled) {
-          setRows(merged);
+          setRows(list);
           setStatus("ready");
         }
       } catch (err) {
@@ -80,26 +115,20 @@ export default function Leaderboard() {
     };
   }, []);
 
-  function medalForIndex(idx) {
-    if (idx === 0) return "🥇";
-    if (idx === 1) return "🥈";
-    if (idx === 2) return "🥉";
-    return "";
-  }
-
   return (
     <div className="page-container ledger-page">
       <header className="ledger-header">
-        <h1 className="big">Piratas más peligrosos</h1>
+        <h1 className="big">Piratas más experimentados</h1>
         <p className="ledger-subtitle">
-          Top 10 jugadores ordenados por <strong>doblones</strong> en su cuenta.
-          No afecta el combate directamente, pero sí deja claro con quién te
-          estás metiendo.
+          Top 10 capitanes ordenados por <strong>nivel y XP</strong>. Los
+          doblones se muestran solo como referencia.
         </p>
       </header>
 
       <div className="card ledger-card">
-        {status === "loading" && <p className="muted">Cargando leaderboard…</p>}
+        {status === "loading" && (
+          <p className="muted">Cargando leaderboard…</p>
+        )}
 
         {status === "error" && (
           <p className="ledger-error">
@@ -111,8 +140,9 @@ export default function Leaderboard() {
 
         {status === "empty" && (
           <p className="muted">
-            Aún no hay jugadores con doblones suficientes para mostrar en el
-            ranking.
+            Aún no hay piratas con suficiente experiencia para mostrar en el
+            ranking. Completa tus primeras misiones para ser el{" "}
+            <strong>primer nombre</strong> en esta tabla.
           </p>
         )}
 
@@ -124,27 +154,40 @@ export default function Leaderboard() {
                   <tr>
                     <th>#</th>
                     <th>Capitán</th>
-                    <th>Doblones</th>
                     <th>Nivel</th>
+                    <th>XP</th>
                     <th>Rango</th>
+                    <th>Doblones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((u, idx) => {
                     const medal = medalForIndex(idx);
+                    const isMe =
+                      currentUserId && u.user_id === currentUserId;
+
+                    const rowStyle = isMe
+                      ? {
+                          background: "rgba(34,197,94,0.08)",
+                          boxShadow:
+                            "0 0 0 1px rgba(34,197,94,0.25)",
+                        }
+                      : undefined;
+
                     return (
-                      <tr key={u.id}>
+                      <tr key={u.user_id || u.email || idx} style={rowStyle}>
                         <td>
                           {idx + 1} {medal && <span>{medal}</span>}
                         </td>
-                        <td>{u.email || "(sin email)"}</td>
+                        <td>{displayName(u)}</td>
+                        <td>{u.level}</td>
+                        <td>{u.xp}</td>
+                        <td>{u.rank}</td>
                         <td className="ledger-delta-cell">
                           <span className="ledger-delta ledger-delta-positive">
                             {u.soft_coins ?? 0}
                           </span>
                         </td>
-                        <td>{u.level}</td>
-                        <td>{u.rank}</td>
                       </tr>
                     );
                   })}
@@ -157,8 +200,8 @@ export default function Leaderboard() {
 
       {status === "ready" && rows.length > 0 && (
         <p className="muted" style={{ marginTop: 8, fontSize: 13 }}>
-          Futuro: puedes dar recompensas semanales a los piratas con más
-          doblones (títulos, cosméticos, misiones especiales, etc.).
+          Futuro: se pueden dar recompensas semanales a los piratas con más
+          experiencia (títulos, cosméticos, misiones especiales, etc.).
         </p>
       )}
     </div>
