@@ -94,7 +94,7 @@ Campos:
 - eta_at (timestamptz)  
 - updated_at (timestamptz)  
 Constraint: ship_state_status_check_v2  
-Usada en: ship_get_state_v2, ship_travel_start_v2, ship_travel_start_v3, ship_force_arrival_v3
+Usada en: ship_get_state_v3, ship_travel_start_v3, ship_travel_progress_v3, ship_arrive_v3, ship_force_arrival_v3
 
 ------------------------------------------------------------
 
@@ -136,31 +136,54 @@ Exploración y Misiones
 
 ------------------------------------------------------------
 
-Barco y viajes
+Barco y viajes - Sistema v3
 
-(ship_get_state_v2)  
-Uso: estado del barco con auto-completado.  
-Llamada desde: supaApi.js:411
-
-(ship_travel_start_v2)  
-Uso: inicio de viaje (versión legacy 10 min).  
-Llamada desde: supaApi.js:430
+(ship_get_state_v3)  
+Uso: estado unificado del barco con auto-completado, progreso, ubicación actual y posición GPS interpolada.  
+Retorna: status, from_island, to_island, from_lat, from_lng, to_lat, to_lng, started_at, eta_at, current_lat, current_lng, progress_percent, time_remaining_seconds, distance_km, speed_kmh  
+Llamada desde: supaApi.js:200, Explore.jsx:95, Ship.jsx:42
 
 (ship_travel_start_v3)  
 Uso: inicio de viaje con distancia real y ETA dinámico.  
-Llamada desde: supaApi.js:467
+Parámetros: p_user uuid, p_from text, p_to text, p_from_lat double precision, p_from_lng double precision, p_to_lat double precision, p_to_lng double precision  
+Retorna: ok boolean, error text, eta_at timestamptz  
+Llamada desde: supaApi.js:209, Explore.jsx:196
+
+(ship_travel_progress_v3)  
+Uso: obtener progreso detallado del viaje con porcentaje, tiempo restante, posición GPS y corrección automática de inconsistencias.  
+Retorna: ok boolean, status text, progress_percent numeric, time_remaining_seconds int, current_lat double precision, current_lng double precision, distance_km numeric, error text  
+Llamada desde: supaApi.js:220, Explore.jsx:133
+
+(ship_arrive_v3)  
+Uso: completar viaje y transicionar a estado idle. Maneja traveling→arrived→idle.  
+Retorna: ok boolean, status text, error text  
+Llamada desde: supaApi.js:247, Explore.jsx:168
 
 (ship_force_arrival_v3)  
 Uso: forzar llegada del barco.  
-Llamada desde: supaApi.js:453
+Retorna: ok boolean, status text, error text  
+Llamada desde: supaApi.js:229, Explore.jsx:221
 
 (ship_distance_between)  
 Uso: calcular distancia real entre islas (Haversine).  
-Llamada desde: ship_travel_start_v3, supaApi.js:485
+Retorna: numeric (distancia en km)  
+Llamada desde: ship_travel_start_v3, ship_travel_progress_v3
 
 (ship_autonomous_update)  
-Uso: auto-completar viajes expirados.  
-Llamada desde: ship_get_state_v2, ship_force_arrival_v3, ship_travel_start_v2, ship_travel_start_v3
+Uso: auto-completar viajes expirados y corregir inconsistencias del ciclo completo.  
+Llamada desde: ship_get_state_v3, ship_travel_progress_v3, ship_travel_start_v3, ship_force_arrival_v3, ship_arrive_v3
+
+(ad_watch_during_travel)  
+Uso: reducir tiempo de viaje al ver anuncio.  
+Parámetros: p_user uuid, p_seconds_to_reduce int DEFAULT 30  
+Retorna: ok boolean, new_eta timestamptz, error text  
+Llamada desde: supaApi.js:259, Explore.jsx:386
+
+(ship_travel_ad_reward)  
+Uso: dar recompensa de monedas por ver anuncio durante viaje.  
+Parámetros: p_user uuid  
+Retorna: ok boolean, coins_awarded int, error text  
+Llamada desde: supaApi.js:268, Explore.jsx:386
 
 ------------------------------------------------------------
 

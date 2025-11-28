@@ -1,6 +1,6 @@
 // src/pages/Ship.jsx
 import React, { useEffect, useState } from "react";
-import { getSupa, ensureUser } from "../lib/supaApi.js";
+import { getSupa, ensureUser, getShipState } from "../lib/supaApi.js";
 
 const FALLBACK_EMAIL = "worm_jim@hotmail.com";
 
@@ -39,40 +39,31 @@ export default function ShipPage() {
 
         setUser(u);
 
-        const supa = getSupa();
-        const { data, error } = await supa.rpc("ship_get_state", {
-          p_user_id: u.id,
-        });
+        const data = await getShipState(u.id);
 
-        if (error) {
-          console.error("[ship] ship_get_state error:", error);
-          throw error;
-        }
-
-        let payload;
-        if (Array.isArray(data)) {
-          const first = data[0] || {};
-          payload = first.ship_get_state || first || {};
-        } else {
-          payload = data?.ship_get_state || data || {};
-        }
-
-        if (!payload || payload.ok === false) {
-          // Si no hay barco, lo tratamos como "sin barco todavía"
+        if (!data) {
           setShip(null);
           setStatus("ready");
           return;
         }
 
         setShip({
-          userId: payload.user_id,
-          currentLocation: payload.current_location || "Desconocido",
-          status: payload.status || "idle",
-          updatedAt: payload.updated_at || null,
+          userId: user.id,
+          currentLocation: data.from_island || data.to_island || "Desconocido",
+          status: data.status || "idle",
+          fromIsland: data.from_island,
+          toIsland: data.to_island,
+          etaAt: data.eta_at,
+          updatedAt: data.updated_at || null,
+          currentLat: data.current_lat,
+          currentLng: data.current_lng,
+          progressPercent: data.progress_percent,
+          distanceKm: data.distance_km,
+          speedKmh: data.speed_kmh,
         });
         setStatus("ready");
       } catch (err) {
-        console.error("[ship] Error cargando estado:", err);
+        console.error("[ship] Error cargando estado ship_get_state_v3:", err);
         if (!cancelled) {
           setErrorMsg(err.message || "No se pudo cargar el barco.");
           setStatus("error");
@@ -87,99 +78,39 @@ export default function ShipPage() {
     };
   }, []);
 
+
+
+  // ----------------------------------------------------
+  // Reload ship state
+  // ----------------------------------------------------
   async function reloadShip() {
     if (!user) return;
     try {
-      const supa = getSupa();
-      const { data, error } = await supa.rpc("ship_get_state", {
-        p_user_id: user.id,
-      });
+      const data = await getShipState(user.id);
 
-      if (error) {
-        console.error("[ship] reload ship_get_state error:", error);
-        throw error;
-      }
-
-      let payload;
-      if (Array.isArray(data)) {
-        const first = data[0] || {};
-        payload = first.ship_get_state || first || {};
-      } else {
-        payload = data?.ship_get_state || data || {};
-      }
-
-      if (!payload || payload.ok === false) {
+      if (!data) {
         setShip(null);
         return;
       }
 
       setShip({
-        userId: payload.user_id,
-        currentLocation: payload.current_location || "Desconocido",
-        status: payload.status || "idle",
-        updatedAt: payload.updated_at || null,
+        userId: user.id,
+        currentLocation: data.from_island || data.to_island || "Desconocido",
+        status: data.status || "idle",
+        fromIsland: data.from_island,
+        toIsland: data.to_island,
+        etaAt: data.eta_at,
+        updatedAt: data.updated_at || null,
+        currentLat: data.current_lat,
+        currentLng: data.current_lng,
+        progressPercent: data.progress_percent,
+        distanceKm: data.distance_km,
+        speedKmh: data.speed_kmh,
       });
     } catch (err) {
-      console.error("[ship] Error recargando estado:", err);
+      console.error("[ship] Error recargando estado ship_get_state_v3:", err);
       setErrorMsg(err.message || "No se pudo recargar el barco.");
       setStatus("error");
-    }
-  }
-
-  // ----------------------------------------------------
-  // Viajes simples (RPC ship_travel_simple)
-  // ----------------------------------------------------
-  async function handleTravel(target) {
-    if (!user) return;
-    const trimmed = (target || "").trim();
-    if (!trimmed) {
-      alert("Escribe un destino.");
-      return;
-    }
-
-    setBusy(true);
-    setErrorMsg("");
-
-    try {
-      const supa = getSupa();
-      const { data, error } = await supa.rpc("ship_travel_simple", {
-        p_user_id: user.id,
-        p_target_location: trimmed,
-      });
-
-      if (error) {
-        console.error("[ship] ship_travel_simple error:", error);
-        throw error;
-      }
-
-      let payload;
-      if (Array.isArray(data)) {
-        const first = data[0] || {};
-        payload = first.ship_travel_simple || first || {};
-      } else {
-        payload = data?.ship_travel_simple || data || {};
-      }
-
-      if (!payload || payload.ok === false) {
-        console.warn("[ship] viaje falló:", payload);
-        setErrorMsg(
-          (payload && payload.message) ||
-            (payload && payload.error) ||
-            "No se pudo completar el viaje."
-        );
-      } else {
-        setShip({
-          userId: payload.user_id,
-          currentLocation: payload.current_location || trimmed,
-          status: payload.status || "idle",
-          updatedAt: payload.updated_at || null,
-        });
-      }
-    } catch (err) {
-      console.error("[ship] Error en viaje:", err);
-      setErrorMsg(err.message || "No se pudo completar el viaje.");
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -247,9 +178,70 @@ export default function ShipPage() {
               <div style={{ fontSize: 13, opacity: 0.75 }}>Estado</div>
               <div style={{ fontSize: 14 }}>
                 {ship.status === "idle" && "En reposo (sin viajar)"}
-                {ship.status !== "idle" && ship.status}
+                {ship.status === "traveling" && "Viajando"}
+                {ship.status === "arrived" && "Ha llegado"}
+                {ship.status !== "idle" && ship.status !== "traveling" && ship.status !== "arrived" && ship.status}
               </div>
             </div>
+
+            {ship.fromIsland && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 13, opacity: 0.75 }}>Desde</div>
+                <div style={{ fontSize: 14 }}>{ship.fromIsland}</div>
+              </div>
+            )}
+
+            {ship.toIsland && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 13, opacity: 0.75 }}>Hacia</div>
+                <div style={{ fontSize: 14 }}>{ship.toIsland}</div>
+              </div>
+            )}
+
+            {ship.currentLat && ship.currentLng && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 13, opacity: 0.75 }}>Posición GPS</div>
+                <div style={{ fontSize: 14 }}>
+                  {ship.currentLat.toFixed(6)}, {ship.currentLng.toFixed(6)}
+                </div>
+              </div>
+            )}
+
+            {ship.progressPercent !== undefined && ship.status === "traveling" && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 13, opacity: 0.75 }}>Progreso del viaje</div>
+                <div style={{ fontSize: 14 }}>
+                  {ship.progressPercent.toFixed(1)}%
+                </div>
+              </div>
+            )}
+
+            {ship.distanceKm && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 13, opacity: 0.75 }}>Distancia total</div>
+                <div style={{ fontSize: 14 }}>
+                  {ship.distanceKm.toFixed(1)} km
+                </div>
+              </div>
+            )}
+
+            {ship.speedKmh && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 13, opacity: 0.75 }}>Velocidad</div>
+                <div style={{ fontSize: 14 }}>
+                  {ship.speedKmh} km/h
+                </div>
+              </div>
+            )}
+
+            {ship.etaAt && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 13, opacity: 0.75 }}>ETA (Hora estimada de llegada)</div>
+                <div style={{ fontSize: 14 }}>
+                  {new Date(ship.etaAt).toLocaleString()}
+                </div>
+              </div>
+            )}
 
             {ship.updatedAt && (
               <div className="muted" style={{ fontSize: 12, marginBottom: 16 }}>
@@ -272,67 +264,39 @@ export default function ShipPage() {
 
         <hr style={{ margin: "16px 0", borderColor: "rgba(148,163,184,0.3)" }} />
 
-        <h3 style={{ marginTop: 0 }}>Viajes rápidos de prueba</h3>
+        <h3 style={{ marginTop: 0 }}>Navegación</h3>
         <p className="muted" style={{ marginBottom: 8 }}>
-          Estos destinos son solo textos lógicos (no GPS). Sirven para probar el
-          sistema de viaje del barco.
+          Para iniciar nuevos viajes y ver el progreso en tiempo real, 
+          utiliza la página de <strong>Explorar</strong>. Allí podrás:
         </p>
+        
+        <ul className="muted" style={{ marginBottom: 12, paddingLeft: 20 }}>
+          <li>Ver todas las islas disponibles</li>
+          <li>Iniciar viajes con GPS real</li>
+          <li>Ver el progreso del viaje en tiempo real</li>
+          <li>Ver anuncios para reducir el tiempo de viaje</li>
+          <li>Forzar llegada (solo desarrollo)</li>
+        </ul>
 
-        <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => handleTravel("Puerto inicial")}
-          >
-            Ir a Puerto inicial
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => handleTravel("Isla de pruebas")}
-          >
-            Ir a Isla de pruebas
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => handleTravel("Isla del tesoro")}
-          >
-            Ir a Isla del tesoro
-          </button>
-        </div>
-
-        <h4 style={{ marginTop: 12, marginBottom: 6 }}>Destino personalizado</h4>
-        <div className="row" style={{ gap: 8 }}>
-          <input
-            type="text"
-            placeholder="Ej: Archipiélago Bribón"
-            value={customDestination}
-            onChange={(e) => setCustomDestination(e.target.value)}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              background: "#020617",
-              color: "#e5e7eb",
-              borderRadius: 8,
-              border: "1px solid #1f2937",
-              padding: "8px 10px",
-              fontSize: 14,
-            }}
-          />
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => handleTravel(customDestination)}
-          >
-            Zarpar
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => window.location.href = "/explore"}
+          style={{
+            background: "#1e40af",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            padding: "10px 16px",
+            fontSize: 14,
+            cursor: "pointer",
+          }}
+        >
+          Ir a Explorar →
+        </button>
       </div>
 
       <p className="muted" style={{ marginTop: 8, fontSize: 13 }}>
-        Futuro: tiempos de viaje, consumo de recursos, eventos aleatorios en el
-        mar y detección del vigía según la ruta.
+        Sistema de navegación v3 con GPS en tiempo real, progreso de viaje y recompensas por anuncios.
       </p>
     </div>
   );

@@ -1,44 +1,31 @@
 // src/components/NavBar.jsx
 import React from "react";
+import { NavLink } from "react-router-dom";
+import "./navbar.css";
 
 const LINKS = [
-  { label: "Usuario DEMO 🚀", href: "#/", route: "/" },
-  { label: "Ledger", href: "#/ledger", route: "/ledger" },
-  { label: "Tienda", href: "#/store", route: "/store" },
-  { label: "Inventario", href: "#/inventory", route: "/inventory" },
-  { label: "Tiles", href: "#/tiles", route: "/tiles" },
-  { label: "Mapa", href: "#/map", route: "/map" },
-  { label: "Misiones", href: "#/missions", route: "/missions" },
-  { label: "Perfil (X)", href: "#/profile", route: "/profile" },
-
-  { label: "Explorar 🌊", href: "#/explore", route: "/explore" },
-
-  { label: "Tripulación ⚓", href: "#/crew", route: "/crew" },
-
-  { label: "Leaderboard", href: "#/leaderboard", route: "/leaderboard" },
+  { label: "Inicio", route: "/", icon: "🏠" },
+  { label: "Explorar", route: "/explore", icon: "🧭" },
+  { label: "Inventario", route: "/inventory", icon: "🎒" },
+  { label: "Islas", route: "/islands", icon: "🏝️" },
+  { label: "Misiones", route: "/missions", icon: "📜" },
 ];
 
-export default function NavBar({ currentRoute }) {
+export default function NavBar() {
   return (
-    <nav className="nav">
-      {LINKS.map((link) => {
-        const isActive =
-          currentRoute === link.route ||
-          (link.route === "/" &&
-            (currentRoute === "/" ||
-              currentRoute === "" ||
-              currentRoute === "/demo"));
-
-        return (
-          <a
-            key={link.href}
-            href={link.href}
-            className={isActive ? "active" : ""}
-          >
-            {link.label}
-          </a>
-        );
-      })}
+    <nav className="bottom-nav">
+      {LINKS.map((link) => (
+        <NavLink
+          key={link.route}
+          to={link.route}
+          className={({ isActive }) =>
+            isActive ? "nav-btn active" : "nav-btn"
+          }
+        >
+          <span className="nav-icon">{link.icon}</span>
+          <span className="nav-text">{link.label}</span>
+        </NavLink>
+      ))}
     </nav>
   );
 }

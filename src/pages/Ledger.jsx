@@ -1,114 +1,84 @@
-// src/pages/Ledger.jsx
+// ============================
+// Ledger.jsx — PirateWorld (V3 Clean)
+// ============================
+
 import React, { useEffect, useState } from "react";
-import { getLastUserId, getUserLedger } from "../lib/supaApi.js";
+import { ensureUser, getUserLedger } from "../lib/supaApi.js";
+import { toast } from "react-hot-toast";
 
-export default function Ledger() {
-  const [userId, setUserId] = useState(null);
-  const [rows, setRows] = useState([]);
-  const [status, setStatus] = useState("idle"); // idle | no-user | loading | ready | error
-  const [errorMsg, setErrorMsg] = useState("");
+export default function LedgerPage() {
+  const [user, setUser] = useState(null);
+  const [ledger, setLedger] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  // ============================
+  // LOAD USER + LEDGER
+  // ============================
   useEffect(() => {
-    const id = getLastUserId();
-    if (!id) {
-      setStatus("no-user");
-      return;
-    }
-    setUserId(id);
-
     (async () => {
-      setStatus("loading");
       try {
-        const data = await getUserLedger(id);
-        setRows(Array.isArray(data) ? data : []);
-        setStatus("ready");
+        const { user } = await ensureUser("worm_jim@hotmail.com");
+        setUser(user);
+
+        await loadLedger(user.id);
       } catch (err) {
-        console.error(err);
-        setErrorMsg(err?.message || "Error al cargar movimientos.");
-        setStatus("error");
+        console.error("Error loading ledger:", err);
+        toast.error("Error al cargar el historial");
+      } finally {
+        setLoading(false);
       }
     })();
   }, []);
 
+  // ============================
+  // LOAD LEDGER RPC
+  // ============================
+  async function loadLedger(userId) {
+    try {
+      const rows = await getUserLedger(userId);
+      setLedger(rows || []);
+    } catch (err) {
+      console.error("Ledger RPC error:", err);
+      toast.error("No se pudo obtener el historial");
+    }
+  }
+
+  // ============================
+  // RENDER
+  // ============================
   return (
-    <section className="ledger-page">
-      <header className="ledger-header">
-        <h1 className="big">Ledger de usuario</h1>
+    <div className="page-container">
+      <h1 className="big">Historial Económico</h1>
 
-        {userId && (
-          <p className="ledger-subtitle">
-            Mostrando los últimos movimientos de:{" "}
-            <code className="ledger-user-id">{userId}</code>
-          </p>
-        )}
+      {loading ? (
+        <p>Cargando…</p>
+      ) : (
+        <>
+          <section className="card ledger-card">
+            <h2>Tu historial</h2>
 
-        {status === "no-user" && (
-          <p className="ledger-subtitle">
-            No hay usuario cargado todavía. Primero use la pestaña{" "}
-            <strong>“Demo usuario”</strong> para crear o cargar uno.
-          </p>
-        )}
-      </header>
+            {ledger.length === 0 && <p>No hay transacciones aún.</p>}
 
-      <div className="card ledger-card">
-        {status === "loading" && (
-          <p className="muted">Cargando movimientos…</p>
-        )}
-
-        {status === "error" && (
-          <p className="ledger-error">
-            Ocurrió un error al cargar el ledger:
-            <br />
-            <code>{errorMsg}</code>
-          </p>
-        )}
-
-        {status === "ready" && rows.length === 0 && (
-          <p className="muted">No hay movimientos todavía.</p>
-        )}
-
-        {status === "ready" && rows.length > 0 && (
-          <div className="ledger-table-wrap">
-            <div className="ledger-table-scroll">
-              <table className="ledger-table">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Tipo</th>
-                    <th>Δ Doblones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((m) => {
-                    const delta = Number(m.delta ?? 0);
-                    const isPositive = delta >= 0;
-                    const formattedDate = new Date(
-                      m.created_at
-                    ).toLocaleString();
-
-                    return (
-                      <tr key={m.id}>
-                        <td className="ledger-date">{formattedDate}</td>
-                        <td className="ledger-type">{m.type}</td>
-                        <td className="ledger-delta-cell">
-                          <span
-                            className={
-                              "ledger-delta " +
-                              (isPositive ? "ledger-delta-positive" : "ledger-delta-negative")
-                            }
-                          >
-                            {isPositive ? `+${delta}` : delta}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </div>
-    </section>
+            {ledger.map((row) => (
+              <div
+                key={row.id}
+                className="ledger-entry"
+                style={{
+                  padding: "10px",
+                  marginBottom: "8px",
+                  borderRadius: "8px",
+                  backgroundColor: "#f3f3f3",
+                }}
+              >
+                <p><strong>Tipo:</strong> {row.type}</p>
+                <p><strong>Monto:</strong> {row.amount > 0 ? `+${row.amount}` : row.amount} monedas</p>
+                <p><strong>Descripción:</strong> {row.description}</p>
+                <p><strong>Fecha:</strong> {new Date(row.created_at).toLocaleString()}</p>
+              </div>
+            ))}
+          </section>
+        </>
+      )}
+    </div>
   );
 }
