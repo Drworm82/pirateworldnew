@@ -1205,3 +1205,10 @@ button:disabled {
   position: relative;
   overflow: visible !important;
 }
+.fadeIn {
+  opacity: 1 !important;
+}
+
+.fadeOut {
+  opacity: 0 !important;
+}

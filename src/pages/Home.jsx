@@ -1,27 +1,71 @@
-// src/pages/Home.jsx
+// ================================================
+// Home.jsx — Versión PRO v4 (Diciembre 2025)
+// Se asegura de inicializar automáticamente el barco
+// ================================================
+
+import React, { useEffect, useState } from "react";
+import { ensureUser, initShip, debugState } from "../lib/supaApi.js";
+
 export default function Home() {
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState(null);
+  const [shipReady, setShipReady] = useState(false);
+
+  useEffect(() => {
+    async function init() {
+      // 1) Asegurar usuario
+      const u = await ensureUser();
+      setUserId(u.id);
+
+      // 2) Revisar si ya existe ship_state
+      const state = await debugState(u.id);
+
+      if (!state) {
+        // 3) Si no existe, inicializar barco
+        await initShip(u.id);
+      }
+
+      // 4) Barco listo
+      setShipReady(true);
+      setLoading(false);
+    }
+
+    init();
+  }, []);
+
+  // Mientras inicializa
+  if (loading) {
+    return (
+      <div
+        style={{
+          color: "white",
+          fontFamily: "sans-serif",
+          padding: 40,
+          textAlign: "center",
+        }}
+      >
+        <h2>Inicializando tu barco...</h2>
+        <p>Espera un momento capitán.</p>
+      </div>
+    );
+  }
+
+  // Cuando ya terminó
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-extrabold mb-3">PirateWorld</h1>
-      <p className="mb-2">
-        Bienvenido al panel de pruebas de PirateWorld. 👋
-      </p>
-      <ul className="list-disc pl-5 space-y-1 text-sm opacity-90">
-        <li>
-          Ve a <strong>Demo usuario</strong> para crear/cargar un pirata y
-          probar anuncios y compras de parcelas.
-        </li>
-        <li>
-          Ve a <strong>Mis parcelas</strong> para listar tus parcelas compradas.
-        </li>
-        <li>
-          Ve a <strong>Mapa</strong> para ver tus parcelas en el mapa Leaflet.
-        </li>
-        <li>
-          Ve a <strong>Movimientos</strong> para ver el ledger (historial de
-          cambios de saldo).
-        </li>
-      </ul>
+    <div
+      style={{
+        color: "white",
+        padding: 20,
+        fontFamily: "sans-serif",
+        textAlign: "center",
+      }}
+    >
+      <h1>🏴‍☠️ PirateWorld</h1>
+      <p>Bienvenido capitán.</p>
+
+      {shipReady && (
+        <p style={{ opacity: 0.7 }}>Tu barco está listo para zarpar.</p>
+      )}
     </div>
   );
 }

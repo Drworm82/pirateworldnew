@@ -1,124 +1,51 @@
-// ============================
-// Store.jsx — PirateWorld (V3 Clean)
-// ============================
+// ==============================================
+// Store.jsx — Placeholder estable
+// ==============================================
 
 import React, { useEffect, useState } from "react";
-import { ensureUser, getStoreItems, buyItem } from "../lib/supaApi.js";
-import { toast } from "react-hot-toast";
+import { ensureUser, getStoreItems, buyItem } from "../lib/supaApi";
 
-export default function StorePage() {
-  const [user, setUser] = useState(null);
-  const [items, setItems] = useState([]);
+export default function Store() {
   const [loading, setLoading] = useState(true);
-  const [buyingId, setBuyingId] = useState(null);
+  const [store, setStore] = useState([]);
 
-  // ============================
-  // LOAD USER + STORE ITEMS
-  // ============================
   useEffect(() => {
-    (async () => {
-      try {
-        const { user } = await ensureUser("worm_jim@hotmail.com");
-        setUser(user);
-
-        await loadItems();
-      } catch (err) {
-        console.error(err);
-        toast.error("Error cargando la tienda");
-      } finally {
-        setLoading(false);
-      }
-    })();
+    async function load() {
+      await ensureUser();
+      const s = await getStoreItems(); // STUB
+      setStore(s);
+      setLoading(false);
+    }
+    load();
   }, []);
 
-  // ============================
-  // LOAD ITEMS
-  // ============================
-  async function loadItems() {
-    try {
-      const data = await getStoreItems();
-      setItems(data || []);
-    } catch (err) {
-      console.error("Error loading store items:", err);
-      toast.error("No se pudo cargar la tienda");
-    }
+  async function handleBuy(id) {
+    const res = await buyItem(id); // STUB
+    alert(res.message);
   }
 
-  // ============================
-  // BUY ITEM
-  // ============================
-  async function handleBuy(itemId) {
-    if (!user) return;
-    setBuyingId(itemId);
+  if (loading) return <div>Cargando tienda...</div>;
 
-    try {
-      const result = await buyItem(user.id, itemId);
-
-      if (!result?.ok) {
-        toast.error(result?.error || "No se pudo comprar");
-      } else {
-        toast.success(`Comprado: ${result.item_name}`);
-      }
-
-      await loadItems();
-    } catch (err) {
-      console.error("Error buying item:", err);
-      toast.error("Error al comprar el item");
-    } finally {
-      setBuyingId(null);
-    }
-  }
-
-  // ============================
-  // RENDER
-  // ============================
   return (
-    <div className="page-container">
-      <h1 className="big">Tienda del Puerto</h1>
+    <div style={{ padding: 20 }}>
+      <h1>Tienda (placeholder)</h1>
+      <p>Este módulo aún no está conectado al backend.</p>
 
-      {loading ? (
-        <p>Cargando…</p>
-      ) : (
-        <section className="card ledger-card">
-          <h2>Artículos disponibles</h2>
-
-          {items.length === 0 && <p>No hay artículos en la tienda.</p>}
-
-          {items.map((item) => (
-            <div
-              key={item.id}
-              className="store-item"
-              style={{
-                padding: "12px",
-                marginBottom: "10px",
-                borderRadius: "8px",
-                backgroundColor: "#f4f4f4",
-              }}
+      <ul>
+        {store.map((i) => (
+          <li key={i.id}>
+            {i.name} — {i.price} doblones
+            <button
+              style={{ marginLeft: 10 }}
+              onClick={() => handleBuy(i.id)}
             >
-              <h3>{item.name}</h3>
-              <p>{item.description || "Sin descripción"}</p>
+              Comprar
+            </button>
+          </li>
+        ))}
+      </ul>
 
-              <p>
-                <strong>Precio:</strong> {item.price} monedas
-              </p>
-              <p>
-                <strong>Categoría:</strong> {item.category}
-              </p>
-              <p>
-                <strong>Rareza:</strong> {item.rarity}
-              </p>
-
-              <button
-                className="btn btn-primary"
-                disabled={buyingId === item.id}
-                onClick={() => handleBuy(item.id)}
-              >
-                {buyingId === item.id ? "Comprando…" : "Comprar"}
-              </button>
-            </div>
-          ))}
-        </section>
-      )}
+      <p>Pronto podrás comprar objetos reales.</p>
     </div>
   );
 }
