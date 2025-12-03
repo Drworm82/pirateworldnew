@@ -1072,3 +1072,143 @@ button:disabled {
     width: 100%;
   }
 }
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal-card {
+  background: #fff;
+  padding: 22px;
+  border-radius: 12px;
+  width: 320px;
+  box-shadow: 0 0 18px rgba(0,0,0,0.3);
+}
+
+.loot-item {
+  padding: 6px 0;
+  font-size: 15px;
+}
+
+.rarity-common { color: #444; }
+.rarity-rare { color: #1e90ff; }
+.rarity-epic { color: #9b59b6; }
+.rarity-legendary { color: #f1c40f; }
+/* INVENTORY - Tarjetas estilo RPG */
+.inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.inv-card {
+  background: rgba(15, 23, 42, 0.9);
+  border: 2px solid #334155;
+  border-radius: 16px;
+  padding: 14px;
+  text-align: center;
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.inv-card:hover {
+  transform: translateY(-4px);
+}
+
+.inv-icon {
+  font-size: 34px;
+}
+
+.inv-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-top: 4px;
+}
+
+.inv-rarity {
+  border: 1px solid;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.inv-qty {
+  margin-top: 4px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #f0f9ff;
+}
+/* =============================
+   MiniMapa Vintage — PirateWorld
+   ============================= */
+
+.minimap-container {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 60;
+}
+
+.minimap-frame {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.minimap-circle {
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  top: 20px;
+  left: 20px;
+  border-radius: 50%;
+  overflow: hidden;
+
+  /* Efecto vintage */
+  filter: sepia(0.45) contrast(1.05) brightness(0.92);
+}
+
+.minimap-map-image {
+  position: absolute;
+  width: 2048px;
+  height: 2048px;
+  pointer-events: none;
+}
+
+.minimap-ship {
+  position: absolute;
+  top: 85px;
+  left: 85px;
+  width: 50px;
+  height: 50px;
+  z-index: 7;
+  transform-origin: center center;
+}
+
+/* Sombra general */
+.minimap-container {
+  filter: drop-shadow(0px 4px 8px rgba(0,0,0,0.5));
+}
+.page-container {
+  position: relative;
+  overflow: visible !important;
+}
+.fadeIn {
+  opacity: 1 !important;
+}
+
+.fadeOut {
+  opacity: 0 !important;
+}

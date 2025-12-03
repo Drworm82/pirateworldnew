@@ -1,0 +1,90 @@
+.sea-event-box {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 12px;
+  padding: 14px 20px;
+  width: 260px;
+
+  display: flex;
+  gap: 12px;
+  align-items: center;
+
+  border: 2px solid #4da3ff;
+  box-shadow: 0 0 20px rgba(50,150,255,0.6);
+
+  font-family: "Segoe UI", sans-serif;
+  color: white;
+
+  animation: sevSlideIn 0.35s ease, sevGlow 3s infinite;
+}
+
+@keyframes sevSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes sevGlow {
+  0% { box-shadow: 0 0 8px rgba(80,150,255,0.4); }
+  50% { box-shadow: 0 0 18px rgba(80,150,255,0.9); }
+  100% { box-shadow: 0 0 8px rgba(80,150,255,0.4); }
+}
+
+.sev-icon {
+  font-size: 32px;
+}
+
+.sev-title {
+  font-size: 17px;
+  font-weight: bold;
+}
+
+.sev-desc {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.sev-time {
+  margin-top: 5px;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+/* Temáticos */
+.sev-storm {
+  border-color: #8fd5ff;
+  box-shadow: 0 0 20px rgba(150,200,255,0.7);
+  animation: sevShake 0.45s ease;
+}
+
+.sev-pirates {
+  border-color: #ff3d3d;
+  box-shadow: 0 0 20px rgba(255,70,70,0.7);
+  animation: sevShake 0.6s ease;
+}
+
+.sev-loot {
+  border-color: #ffdd55;
+  box-shadow: 0 0 20px rgba(255,220,80,0.7);
+}
+
+.sev-waves {
+  border-color: #3dbbff;
+  box-shadow: 0 0 20px rgba(80,180,255,0.7);
+}
+
+@keyframes sevShake {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  50% { transform: translateX(6px); }
+  75% { transform: translateX(-4px); }
+  100% { transform: translateX(0); }
+}

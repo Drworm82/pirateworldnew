@@ -1,44 +1,28 @@
-// src/components/NavBar.jsx
-import React from "react";
+// src/components/Navbar.jsx
+import { Link } from "react-router-dom";
 
-const LINKS = [
-  { label: "Usuario DEMO 🚀", href: "#/", route: "/" },
-  { label: "Ledger", href: "#/ledger", route: "/ledger" },
-  { label: "Tienda", href: "#/store", route: "/store" },
-  { label: "Inventario", href: "#/inventory", route: "/inventory" },
-  { label: "Tiles", href: "#/tiles", route: "/tiles" },
-  { label: "Mapa", href: "#/map", route: "/map" },
-  { label: "Misiones", href: "#/missions", route: "/missions" },
-  { label: "Perfil (X)", href: "#/profile", route: "/profile" },
-
-  { label: "Explorar 🌊", href: "#/explore", route: "/explore" },
-
-  { label: "Tripulación ⚓", href: "#/crew", route: "/crew" },
-
-  { label: "Leaderboard", href: "#/leaderboard", route: "/leaderboard" },
-];
-
-export default function NavBar({ currentRoute }) {
+export default function Navbar() {
   return (
-    <nav className="nav">
-      {LINKS.map((link) => {
-        const isActive =
-          currentRoute === link.route ||
-          (link.route === "/" &&
-            (currentRoute === "/" ||
-              currentRoute === "" ||
-              currentRoute === "/demo"));
-
-        return (
-          <a
-            key={link.href}
-            href={link.href}
-            className={isActive ? "active" : ""}
-          >
-            {link.label}
-          </a>
-        );
-      })}
+    <nav
+      style={{
+        display: "flex",
+        gap: 20,
+        padding: 12,
+        background: "#0b0b0b",
+        borderBottom: "1px solid #333",
+        color: "white",
+      }}
+    >
+      <Link to="/">Home</Link>
+      <Link to="/explore">Explore</Link>
+      <Link to="/ship">Ship</Link>
+      <Link to="/missions">Missions</Link>
+      <Link to="/inventory">Inventory</Link>
+      <Link to="/store">Store</Link>
+      <Link to="/crew">Crew</Link>
+      <Link to="/map">Map</Link>
+      <Link to="/leaderboard">Leaderboard</Link>
+      <Link to="/profile">Profile</Link>
     </nav>
   );
 }

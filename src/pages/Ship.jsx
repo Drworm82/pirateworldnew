@@ -1,339 +1,195 @@
-// src/pages/Ship.jsx
+// ===================================================================
+// Ship.jsx — Vista del barco en tiempo real (V5 PRO ULTRA)
+// Con eventos, sonidos, costos y HUD profesional
+// ===================================================================
+
 import React, { useEffect, useState } from "react";
-import { getSupa, ensureUser } from "../lib/supaApi.js";
+import {
+  ensureUser,
+  getShipProgress,
+  autoNav,
+} from "../lib/supaApi.js";
 
-const FALLBACK_EMAIL = "worm_jim@hotmail.com";
+import { playEventSound } from "../lib/SoundPlayer.js";
 
-function getCurrentEmail() {
-  if (typeof window === "undefined") return FALLBACK_EMAIL;
+import SeaEventsBox from "../components/SeaEventsBox.jsx";
+import SeaEventLog from "../components/SeaEventLog.jsx";
 
-  const fromDemo = window.localStorage.getItem("demoEmail");
-  const fromDemoUser = window.localStorage.getItem("demoUserEmail");
-  const fromLegacy = window.localStorage.getItem("userEmail");
+export default function Ship() {
+  const [userId, setUserId] = useState(null);
+  const [progress, setProgress] = useState(null);
+  const [events, setEvents] = useState([]); // historial corto + animación
+  const [log, setLog] = useState([]); // historial completo
+  const [loading, setLoading] = useState(true);
 
-  return fromDemo || fromDemoUser || fromLegacy || FALLBACK_EMAIL;
-}
-
-export default function ShipPage() {
-  const [user, setUser] = useState(null);
-  const [ship, setShip] = useState(null);
-  const [status, setStatus] = useState("loading"); // loading | ready | error
-  const [errorMsg, setErrorMsg] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const [customDestination, setCustomDestination] = useState("");
-
-  // ----------------------------------------------------
-  // Cargar usuario + estado del barco
-  // ----------------------------------------------------
+  // ======================================================
+  // INIT + POLLING
+  // ======================================================
   useEffect(() => {
-    let cancelled = false;
+    async function init() {
+      const u = await ensureUser();
+      setUserId(u.id);
 
-    async function load() {
-      setStatus("loading");
-      setErrorMsg("");
+      const p = await getShipProgress(u.id);
+      setProgress(p);
+      setLoading(false);
 
-      try {
-        const { user: u } = await ensureUser(getCurrentEmail());
-        if (cancelled) return;
+      // Polling 1.5s
+      const interval = setInterval(async () => {
+        const p2 = await getShipProgress(u.id);
+        setProgress(p2);
+      }, 1500);
 
-        setUser(u);
-
-        const supa = getSupa();
-        const { data, error } = await supa.rpc("ship_get_state", {
-          p_user_id: u.id,
-        });
-
-        if (error) {
-          console.error("[ship] ship_get_state error:", error);
-          throw error;
-        }
-
-        let payload;
-        if (Array.isArray(data)) {
-          const first = data[0] || {};
-          payload = first.ship_get_state || first || {};
-        } else {
-          payload = data?.ship_get_state || data || {};
-        }
-
-        if (!payload || payload.ok === false) {
-          // Si no hay barco, lo tratamos como "sin barco todavía"
-          setShip(null);
-          setStatus("ready");
-          return;
-        }
-
-        setShip({
-          userId: payload.user_id,
-          currentLocation: payload.current_location || "Desconocido",
-          status: payload.status || "idle",
-          updatedAt: payload.updated_at || null,
-        });
-        setStatus("ready");
-      } catch (err) {
-        console.error("[ship] Error cargando estado:", err);
-        if (!cancelled) {
-          setErrorMsg(err.message || "No se pudo cargar el barco.");
-          setStatus("error");
-        }
-      }
+      return () => clearInterval(interval);
     }
 
-    load();
-
-    return () => {
-      cancelled = true;
-    };
+    init();
   }, []);
 
-  async function reloadShip() {
-    if (!user) return;
-    try {
-      const supa = getSupa();
-      const { data, error } = await supa.rpc("ship_get_state", {
-        p_user_id: user.id,
-      });
+  // ======================================================
+  // Expiración AUTOMÁTICA de los eventos del HUD (30 s)
+  // ======================================================
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setEvents((prev) =>
+        prev.map((e) =>
+          Date.now() - e.timestamp > 30000
+            ? { ...e, expired: true }
+            : e
+        )
+      );
+    }, 4000);
 
-      if (error) {
-        console.error("[ship] reload ship_get_state error:", error);
-        throw error;
-      }
+    return () => clearInterval(timer);
+  }, []);
 
-      let payload;
-      if (Array.isArray(data)) {
-        const first = data[0] || {};
-        payload = first.ship_get_state || first || {};
-      } else {
-        payload = data?.ship_get_state || data || {};
-      }
+  // ======================================================
+  // AUTONAV — Genera evento (tormenta, piratas, loot, etc.)
+  // ======================================================
+  async function handleAutoNav() {
+    if (!userId) return;
 
-      if (!payload || payload.ok === false) {
-        setShip(null);
-        return;
-      }
+    const res = await autoNav(userId);
+    console.log("AutoNav:", res);
 
-      setShip({
-        userId: payload.user_id,
-        currentLocation: payload.current_location || "Desconocido",
-        status: payload.status || "idle",
-        updatedAt: payload.updated_at || null,
-      });
-    } catch (err) {
-      console.error("[ship] Error recargando estado:", err);
-      setErrorMsg(err.message || "No se pudo recargar el barco.");
-      setStatus("error");
+    if (res?.event) {
+      const ev = {
+        id: Date.now(),
+        title: res.event.title || "Evento",
+        description: res.event.description || "",
+        type: res.event.type || "default",
+        cost: res.event.cost || 0,
+        timestamp: Date.now(),
+        time: new Date().toLocaleTimeString(),
+      };
+
+      // HUD (5 últimos)
+      setEvents((prev) => [...prev.slice(-4), ev]);
+
+      // LOG completo
+      setLog((prev) => [...prev, ev]);
+
+      // 🔊 reproducir sonido
+      playEventSound(ev.type);
     }
+
+    const updated = await getShipProgress(userId);
+    setProgress(updated);
   }
 
-  // ----------------------------------------------------
-  // Viajes simples (RPC ship_travel_simple)
-  // ----------------------------------------------------
-  async function handleTravel(target) {
-    if (!user) return;
-    const trimmed = (target || "").trim();
-    if (!trimmed) {
-      alert("Escribe un destino.");
-      return;
-    }
-
-    setBusy(true);
-    setErrorMsg("");
-
-    try {
-      const supa = getSupa();
-      const { data, error } = await supa.rpc("ship_travel_simple", {
-        p_user_id: user.id,
-        p_target_location: trimmed,
-      });
-
-      if (error) {
-        console.error("[ship] ship_travel_simple error:", error);
-        throw error;
-      }
-
-      let payload;
-      if (Array.isArray(data)) {
-        const first = data[0] || {};
-        payload = first.ship_travel_simple || first || {};
-      } else {
-        payload = data?.ship_travel_simple || data || {};
-      }
-
-      if (!payload || payload.ok === false) {
-        console.warn("[ship] viaje falló:", payload);
-        setErrorMsg(
-          (payload && payload.message) ||
-            (payload && payload.error) ||
-            "No se pudo completar el viaje."
-        );
-      } else {
-        setShip({
-          userId: payload.user_id,
-          currentLocation: payload.current_location || trimmed,
-          status: payload.status || "idle",
-          updatedAt: payload.updated_at || null,
-        });
-      }
-    } catch (err) {
-      console.error("[ship] Error en viaje:", err);
-      setErrorMsg(err.message || "No se pudo completar el viaje.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // ----------------------------------------------------
-  // Render
-  // ----------------------------------------------------
-
-  if (status === "loading") {
+  // ======================================================
+  // LOADING
+  // ======================================================
+  if (loading || !progress) {
     return (
-      <div className="page-container ledger-page">
-        <h1 className="big">Barco</h1>
-        <p className="muted">Cargando estado del barco…</p>
+      <div style={{ color: "white", padding: 20 }}>
+        <h2>Cargando barco...</h2>
       </div>
     );
   }
 
-  if (status === "error") {
-    return (
-      <div className="page-container ledger-page">
-        <h1 className="big">Barco</h1>
-        <p className="ledger-error">
-          Ocurrió un error al cargar el barco:
-          <br />
-          <code>{errorMsg}</code>
-        </p>
-        <button
-          type="button"
-          onClick={reloadShip}
-          style={{ marginTop: 12 }}
-        >
-          Reintentar
-        </button>
-      </div>
-    );
-  }
-
+  // ======================================================
+  // UI PRINCIPAL
+  // ======================================================
   return (
-    <div className="page-container ledger-page">
-      <header className="ledger-header">
-        <h1 className="big">Estado del barco</h1>
-        <p className="ledger-subtitle">
-          Aquí ves <strong>dónde está tu barco</strong> y puedes hacer viajes
-          simples a otros destinos de prueba. Más adelante esto crecerá a un
-          sistema de navegación con tiempos, costos y eventos.
-        </p>
-      </header>
+    <div style={{ padding: 20, color: "white" }}>
+      <h1>🚢 Tu Barco</h1>
 
-      <div className="card ledger-card">
-        {user && (
-          <p className="muted" style={{ marginTop: 0, marginBottom: 12 }}>
-            Capitán: <strong>{user.email}</strong>
-          </p>
-        )}
+      {/* === PANEL DE ESTADO === */}
+      <div
+        style={{
+          padding: 15,
+          background: "rgba(0,0,0,0.55)",
+          border: "1px solid #4da3ff",
+          borderRadius: 12,
+          maxWidth: 420,
+        }}
+      >
+        <h3>Estado del Viaje</h3>
 
-        {ship ? (
-          <>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 13, opacity: 0.75 }}>Ubicación actual</div>
-              <div style={{ fontSize: 18, fontWeight: 600 }}>
-                {ship.currentLocation}
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 13, opacity: 0.75 }}>Estado</div>
-              <div style={{ fontSize: 14 }}>
-                {ship.status === "idle" && "En reposo (sin viajar)"}
-                {ship.status !== "idle" && ship.status}
-              </div>
-            </div>
-
-            {ship.updatedAt && (
-              <div className="muted" style={{ fontSize: 12, marginBottom: 16 }}>
-                Última actualización:{" "}
-                <code>{new Date(ship.updatedAt).toLocaleString()}</code>
-              </div>
-            )}
-          </>
-        ) : (
-          <p className="muted">
-            Aún no hay estado de barco registrado. Haz un viaje para crearlo.
-          </p>
-        )}
-
-        {errorMsg && (
-          <p className="ledger-error" style={{ marginTop: 8 }}>
-            {errorMsg}
-          </p>
-        )}
-
-        <hr style={{ margin: "16px 0", borderColor: "rgba(148,163,184,0.3)" }} />
-
-        <h3 style={{ marginTop: 0 }}>Viajes rápidos de prueba</h3>
-        <p className="muted" style={{ marginBottom: 8 }}>
-          Estos destinos son solo textos lógicos (no GPS). Sirven para probar el
-          sistema de viaje del barco.
+        <p>
+          <strong>
+            {progress.status === "traveling" ? "En viaje" : "En puerto"}
+          </strong>
         </p>
 
-        <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => handleTravel("Puerto inicial")}
-          >
-            Ir a Puerto inicial
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => handleTravel("Isla de pruebas")}
-          >
-            Ir a Isla de pruebas
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => handleTravel("Isla del tesoro")}
-          >
-            Ir a Isla del tesoro
-          </button>
-        </div>
+        <p><strong>Origen:</strong> {progress.origin}</p>
+        <p><strong>Destino:</strong> {progress.destination || "—"}</p>
+        <p><strong>Distancia total:</strong> {progress.distance_km} km</p>
 
-        <h4 style={{ marginTop: 12, marginBottom: 6 }}>Destino personalizado</h4>
-        <div className="row" style={{ gap: 8 }}>
-          <input
-            type="text"
-            placeholder="Ej: Archipiélago Bribón"
-            value={customDestination}
-            onChange={(e) => setCustomDestination(e.target.value)}
+        {/* Progreso */}
+        <p><strong>Avance:</strong> {progress.percent?.toFixed(1)}%</p>
+
+        <div
+          style={{
+            marginTop: 8,
+            height: 10,
+            width: "100%",
+            background: "#222",
+            borderRadius: 6,
+            overflow: "hidden",
+          }}
+        >
+          <div
             style={{
-              flex: 1,
-              minWidth: 0,
-              background: "#020617",
-              color: "#e5e7eb",
-              borderRadius: 8,
-              border: "1px solid #1f2937",
-              padding: "8px 10px",
-              fontSize: 14,
+              height: "100%",
+              width: `${progress.percent}%`,
+              background: "#4da3ff",
+              transition: "width 0.5s ease",
             }}
           />
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => handleTravel(customDestination)}
-          >
-            Zarpar
-          </button>
         </div>
+
+        {/* Posición actual */}
+        <div style={{ marginTop: 12 }}>
+          <p><strong>Lat:</strong> {Number(progress.current_lat).toFixed(5)}</p>
+          <p><strong>Lng:</strong> {Number(progress.current_lng).toFixed(5)}</p>
+        </div>
+
+        {/* Botón AUTO NAV */}
+        {progress.status === "traveling" && (
+          <button
+            onClick={handleAutoNav}
+            style={{
+              marginTop: 15,
+              padding: "10px 15px",
+              background: "#4da3ff",
+              border: "none",
+              borderRadius: 8,
+              width: "100%",
+              cursor: "pointer",
+            }}
+          >
+            Forzar evento ⚡
+          </button>
+        )}
       </div>
 
-      <p className="muted" style={{ marginTop: 8, fontSize: 13 }}>
-        Futuro: tiempos de viaje, consumo de recursos, eventos aleatorios en el
-        mar y detección del vigía según la ruta.
-      </p>
+      {/* === HUD flotante: últimos eventos === */}
+      <SeaEventsBox events={events} />
+
+      {/* === LOG completo === */}
+      <SeaEventLog events={log} />
     </div>
   );
 }

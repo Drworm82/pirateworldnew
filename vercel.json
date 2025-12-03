@@ -1,14 +1,8 @@
 {
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
-  ],
-  "redirects": [],
-  "headers": [
-    {
-      "source": "/sw.js",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache" }
-      ]
-    }
-  ]
+  "buildCommand": "npm install --omit=optional && npm run build",
+  "installCommand": "npm install --omit=optional",
+  "framework": "vite",
+  "env": {
+    "NODE_ENV": "production"
+  }
 }

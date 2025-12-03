@@ -1,114 +1,103 @@
-// src/pages/Ledger.jsx
-import React, { useEffect, useState } from "react";
-import { getLastUserId, getUserLedger } from "../lib/supaApi.js";
+// =====================================================
+// Leaderboard.jsx — V6 (estable + compatible con supaApi.js v10)
+// =====================================================
 
-export default function Ledger() {
-  const [userId, setUserId] = useState(null);
-  const [rows, setRows] = useState([]);
-  const [status, setStatus] = useState("idle"); // idle | no-user | loading | ready | error
-  const [errorMsg, setErrorMsg] = useState("");
+import React, { useEffect, useState } from "react";
+import { ensureUser, getMyShipRow } from "../lib/supaApi.js";
+
+// Debug short alias
+const DBG = (...a) => console.log("[Leaderboard.jsx]", ...a);
+
+export default function Leaderboard() {
+  const [status, setStatus] = useState("loading");
+  const [leaders, setLeaders] = useState([]);
 
   useEffect(() => {
-    const id = getLastUserId();
-    if (!id) {
-      setStatus("no-user");
-      return;
-    }
-    setUserId(id);
-
     (async () => {
-      setStatus("loading");
       try {
-        const data = await getUserLedger(id);
-        setRows(Array.isArray(data) ? data : []);
+        DBG("=== LOAD LEADERBOARD START ===");
+
+        const uid = await ensureUser("anon");
+        DBG("User ID:", uid);
+
+        DBG("Fetching ship leaderboard…");
+        const res = await fetch(
+          "/rest/v1/ships?select=id,user_id,current_island,travel_percent,updated_at&order=travel_percent.desc",
+          {
+            headers: {
+              apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+          }
+        );
+
+        const data = await res.json();
+        DBG("Leaderboard data:", data);
+
+        setLeaders(data ?? []);
         setStatus("ready");
       } catch (err) {
-        console.error(err);
-        setErrorMsg(err?.message || "Error al cargar movimientos.");
+        console.error("[Leaderboard.jsx] ERROR:", err);
         setStatus("error");
       }
     })();
   }, []);
 
-  return (
-    <section className="ledger-page">
-      <header className="ledger-header">
-        <h1 className="big">Ledger de usuario</h1>
+  // =====================================================
+  // UI — Estados
+  // =====================================================
 
-        {userId && (
-          <p className="ledger-subtitle">
-            Mostrando los últimos movimientos de:{" "}
-            <code className="ledger-user-id">{userId}</code>
-          </p>
-        )}
-
-        {status === "no-user" && (
-          <p className="ledger-subtitle">
-            No hay usuario cargado todavía. Primero use la pestaña{" "}
-            <strong>“Demo usuario”</strong> para crear o cargar uno.
-          </p>
-        )}
-      </header>
-
-      <div className="card ledger-card">
-        {status === "loading" && (
-          <p className="muted">Cargando movimientos…</p>
-        )}
-
-        {status === "error" && (
-          <p className="ledger-error">
-            Ocurrió un error al cargar el ledger:
-            <br />
-            <code>{errorMsg}</code>
-          </p>
-        )}
-
-        {status === "ready" && rows.length === 0 && (
-          <p className="muted">No hay movimientos todavía.</p>
-        )}
-
-        {status === "ready" && rows.length > 0 && (
-          <div className="ledger-table-wrap">
-            <div className="ledger-table-scroll">
-              <table className="ledger-table">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Tipo</th>
-                    <th>Δ Doblones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((m) => {
-                    const delta = Number(m.delta ?? 0);
-                    const isPositive = delta >= 0;
-                    const formattedDate = new Date(
-                      m.created_at
-                    ).toLocaleString();
-
-                    return (
-                      <tr key={m.id}>
-                        <td className="ledger-date">{formattedDate}</td>
-                        <td className="ledger-type">{m.type}</td>
-                        <td className="ledger-delta-cell">
-                          <span
-                            className={
-                              "ledger-delta " +
-                              (isPositive ? "ledger-delta-positive" : "ledger-delta-negative")
-                            }
-                          >
-                            {isPositive ? `+${delta}` : delta}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+  if (status === "loading") {
+    return (
+      <div style={{ padding: 20, color: "white" }}>
+        Cargando leaderboard…
       </div>
-    </section>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div style={{ padding: 20, color: "red" }}>
+        Error cargando el leaderboard. Revisa consola.
+      </div>
+    );
+  }
+
+  // =====================================================
+  // UI PRINCIPAL
+  // =====================================================
+
+  return (
+    <div style={{ padding: 20, color: "white" }}>
+      <h2>🏆 Leaderboard</h2>
+
+      {leaders.length === 0 && (
+        <p>No hay barcos registrados aún.</p>
+      )}
+
+      {leaders.map((row, idx) => (
+        <div
+          key={row.id}
+          style={{
+            marginBottom: 14,
+            padding: 12,
+            border: "1px solid #4da3ff",
+            borderRadius: 8,
+          }}
+        >
+          <div>
+            <strong># {idx + 1}</strong>
+          </div>
+
+          <div><strong>User:</strong> {row.user_id}</div>
+          <div><strong>Isla actual:</strong> {row.current_island ?? "Desconocida"}</div>
+          <div><strong>Progreso:</strong> {row.travel_percent?.toFixed(2) ?? 0}%</div>
+
+          <div style={{ fontSize: "0.8em", marginTop: 4 }}>
+            <i>Actualizado: {row.updated_at}</i>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
