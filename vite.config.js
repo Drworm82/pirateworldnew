@@ -1,10 +1,9 @@
-// vite.config.js
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
-  base: "./", // 🔹 Requerido para Vercel + SPA
+  base: "./",
   plugins: [
     react(),
     VitePWA({
@@ -18,8 +17,11 @@ export default defineConfig({
         name: "PirateWorld",
         short_name: "PirateWorld",
         description: "Juego geolocalizado pirata (demo web)",
-        start_url: "/#/inicio?v=2025-11-05-02", // 🔹 Hash routing
-        scope: "/#/",
+
+        // 🔥 Browser Router, no hash router
+        start_url: "/",
+        scope: "/",
+
         display: "standalone",
         background_color: "#0b132b",
         theme_color: "#0b132b",

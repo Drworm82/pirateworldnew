@@ -1,7 +1,16 @@
+// src/App.jsx
 import React from "react";
-import { RouterProvider } from "react-router-dom";
-import router from "./router.jsx";
+import { BrowserRouter } from "react-router-dom";
+import Navbar from "./components/Navbar.jsx";
+import AppRouter from "./router.jsx";
 
 export default function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <BrowserRouter>
+      <Navbar />
+      <div style={{ padding: 20 }}>
+        <AppRouter />
+      </div>
+    </BrowserRouter>
+  );
 }

@@ -1,142 +1,212 @@
-// ===================================
-// supaApi.js — PirateWorld (V3 DEFINITIVO)
-// ===================================
+// ================================================
+// supaApi.js — Versión oficial v4 PRO FINAL
+// ================================================
 
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "./supaClient";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// -----------------------------------------------
+// Asegurar usuario anónimo
+// -----------------------------------------------
+export async function ensureUser() {
+  const session = (await supabase.auth.getSession()).data.session;
 
-let _client = null;
-export function _getClient() {
-  if (!_client) {
-    _client = createClient(supabaseUrl, supabaseAnon);
+  if (session?.user) {
+    return session.user;
   }
-  return _client;
+
+  const { data, error } = await supabase.auth.signInAnonymously();
+  if (error) throw error;
+
+  return data.user;
 }
 
-// ===================================
-// USERS — crear usuario si no existe
-// ===================================
-export async function ensureUser(email) {
-  const sb = _getClient();
-
-  // Buscar usuario
-  const { data: userData, error: selectError } = await sb
-    .from("users")
-    .select("*")
-    .eq("email", email)
-    .maybeSingle();
-
-  if (selectError) {
-    console.error("ensureUser SELECT error:", selectError);
-    throw selectError;
-  }
-
-  if (userData) return { user: userData };
-
-  // Crear si no existe
-  const { data, error } = await sb
-    .from("users")
-    .insert({ email })
-    .select()
-    .single();
-
-  if (error) {
-    console.error("ensureUser INSERT error:", error);
-    throw error;
-  }
-
-  return { user: data };
-}
-
-// ===================================
-// SHIP SYSTEM — V3 (BACKEND DEFINITIVO)
-// ===================================
-
-// Obtener progreso del barco (jsonb, no array)
-export async function getShipProgress(userId) {
-  const sb = _getClient();
-
-  const { data, error } = await sb.rpc("ship_travel_progress_v3", {
-    p_user_id: userId,
+// -----------------------------------------------
+// Inicializar barco — ship_init_v4
+// -----------------------------------------------
+export async function initShip(userId) {
+  const { data, error } = await supabase.rpc("ship_init_v4", {
+    p_user: userId,
   });
 
   if (error) {
-    console.error("RPC ship_travel_progress_v3 ERROR:", error);
+    console.error("initShip error:", error);
+    throw error;
+  }
+
+  return data;
+}
+
+// -----------------------------------------------
+// Progreso del viaje — ship_travel_progress_v4
+// -----------------------------------------------
+export async function getShipProgress(userId) {
+  const { data, error } = await supabase.rpc("ship_travel_progress_v4", {
+    p_user: userId,
+  });
+
+  if (error) {
+    console.error("getShipProgress error:", error);
     return null;
   }
 
   return data;
 }
 
-// Iniciar viaje
-export async function startShipTravelV3(
-  userId,
-  originKey,
-  destKey,
-  originLat,
-  originLng,
-  destLat,
-  destLng
-) {
-  const sb = _getClient();
-
-  const { data, error } = await sb.rpc("ship_travel_start_v3", {
-    p_user_id: userId,
-    p_origin: originKey,
-    p_destination: destKey,
-    p_origin_lat: originLat,
-    p_origin_lng: originLng,
-    p_destination_lat: destLat,
-    p_destination_lng: destLng,
+// -----------------------------------------------
+// Autonavegación — ship_autonav_v4
+// -----------------------------------------------
+export async function autoNav(userId) {
+  const { data, error } = await supabase.rpc("ship_autonav_v4", {
+    p_user: userId,
   });
 
   if (error) {
-    console.error("RPC ship_travel_start_v3 ERROR:", error);
+    console.error("autoNav error:", error);
     throw error;
   }
 
   return data;
 }
 
-// Llegada automática
-export async function shipArrive(userId) {
-  const sb = _getClient();
-  const { data, error } = await sb.rpc("ship_arrive_v3", {
-    p_user_id: userId,
+// -----------------------------------------------
+// Evento del mar — ship_trigger_event_v4
+// -----------------------------------------------
+export async function getLastEvent(userId) {
+  const { data, error } = await supabase.rpc("ship_trigger_event_v4", {
+    p_user: userId,
   });
-  if (error) throw error;
+
+  if (error) {
+    console.error("getLastEvent error:", error);
+    return null;
+  }
+
   return data;
 }
 
-// Forzar llegada (solo dev)
-export async function forceShipArrival(userId) {
-  const sb = _getClient();
-  const { data, error } = await sb.rpc("ship_force_arrival_v3", {
-    p_user_id: userId,
+// -----------------------------------------------
+// Iniciar viaje — ship_travel_start_v4
+// -----------------------------------------------
+export async function startTravel(userId, islandKey) {
+  const { data, error } = await supabase.rpc("ship_travel_start_v4", {
+    p_user: userId,
+    p_destination: islandKey,
   });
-  if (error) throw error;
+
+  if (error) {
+    console.error("startTravel error:", error);
+    return null;
+  }
+
   return data;
 }
 
-// Ver anuncio durante viaje
-export async function watchAdDuringTravel(userId, seconds) {
-  const sb = _getClient();
-  const { data, error } = await sb.rpc("ad_watch_during_travel", {
-    p_user_id: userId,
-    p_seconds: seconds,
-  });
-  if (error) throw error;
+// -----------------------------------------------
+// Cargar islas — tabla islands
+// -----------------------------------------------
+export async function loadIslands() {
+  const { data, error } = await supabase
+    .from("islands")
+    .select("*")
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("loadIslands error:", error);
+    return [];
+  }
+
   return data;
 }
 
-// Recompensa por ver anuncio
-export async function getShipTravelAdReward(userId) {
-  const sb = _getClient();
-  const { data, error } = await sb.rpc("ship_travel_ad_reward", {
-    p_user_id: userId,
-  });
-  if (error) throw error;
+// -----------------------------------------------
+// Estado sin procesar — Debug directo a ship_state
+// -----------------------------------------------
+export async function debugState(userId) {
+  const { data, error } = await supabase
+    .from("ship_state")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("debugState error:", error);
+    return null;
+  }
+
   return data;
+}
+
+// ===============================================================
+// 🚢 PRO — Costo del viaje basado en ship_config + distancia real
+// ===============================================================
+
+// Distancia haversine (km)
+function haversineDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) *
+      Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng / 2) ** 2;
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// -----------------------------------------------
+// PRO: calcular costo basado en distancia + ship_config
+// -----------------------------------------------
+export async function calculateTravelCost(userId, islandKey) {
+  try {
+    const { data: state, error: e1 } = await supabase
+      .from("ship_state")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (e1 || !state) throw e1 || new Error("NO_SHIP_STATE");
+
+    const { data: island, error: e2 } = await supabase
+      .from("islands")
+      .select("*")
+      .eq("key", islandKey)
+      .maybeSingle();
+    if (e2 || !island) throw e2 || new Error("NO_ISLAND");
+
+    const boat = state.boat_type ?? state.type ?? "basic";
+
+    const { data: cfg, error: e3 } = await supabase
+      .from("ship_config")
+      .select("*")
+      .eq("boat_type", boat)
+      .maybeSingle();
+    if (e3 || !cfg) throw e3 || new Error("NO_SHIP_CONFIG");
+
+    const distance_km = haversineDistance(
+      state.origin_lat,
+      state.origin_lng,
+      island.lat,
+      island.lng
+    );
+
+    const base_cost = Number(cfg.base_cost);
+    const variable_cost = Math.round(distance_km * Number(cfg.cost_per_km));
+    const total_cost = base_cost + variable_cost;
+
+    return {
+      distance_km: Number(distance_km.toFixed(3)),
+      base_cost,
+      variable_cost,
+      total_cost,
+      destination: islandKey,
+    };
+  } catch (err) {
+    console.error("calculateTravelCost error:", err);
+    return {
+      error: true,
+      message: err?.message || "unknown_error",
+    };
+  }
 }

@@ -1,84 +1,103 @@
-// ============================
-// Ledger.jsx — PirateWorld (V3 Clean)
-// ============================
+// =====================================================
+// Leaderboard.jsx — V6 (estable + compatible con supaApi.js v10)
+// =====================================================
 
 import React, { useEffect, useState } from "react";
-import { ensureUser, getUserLedger } from "../lib/supaApi.js";
-import { toast } from "react-hot-toast";
+import { ensureUser, getMyShipRow } from "../lib/supaApi.js";
 
-export default function LedgerPage() {
-  const [user, setUser] = useState(null);
-  const [ledger, setLedger] = useState([]);
-  const [loading, setLoading] = useState(true);
+// Debug short alias
+const DBG = (...a) => console.log("[Leaderboard.jsx]", ...a);
 
-  // ============================
-  // LOAD USER + LEDGER
-  // ============================
+export default function Leaderboard() {
+  const [status, setStatus] = useState("loading");
+  const [leaders, setLeaders] = useState([]);
+
   useEffect(() => {
     (async () => {
       try {
-        const { user } = await ensureUser("worm_jim@hotmail.com");
-        setUser(user);
+        DBG("=== LOAD LEADERBOARD START ===");
 
-        await loadLedger(user.id);
+        const uid = await ensureUser("anon");
+        DBG("User ID:", uid);
+
+        DBG("Fetching ship leaderboard…");
+        const res = await fetch(
+          "/rest/v1/ships?select=id,user_id,current_island,travel_percent,updated_at&order=travel_percent.desc",
+          {
+            headers: {
+              apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+          }
+        );
+
+        const data = await res.json();
+        DBG("Leaderboard data:", data);
+
+        setLeaders(data ?? []);
+        setStatus("ready");
       } catch (err) {
-        console.error("Error loading ledger:", err);
-        toast.error("Error al cargar el historial");
-      } finally {
-        setLoading(false);
+        console.error("[Leaderboard.jsx] ERROR:", err);
+        setStatus("error");
       }
     })();
   }, []);
 
-  // ============================
-  // LOAD LEDGER RPC
-  // ============================
-  async function loadLedger(userId) {
-    try {
-      const rows = await getUserLedger(userId);
-      setLedger(rows || []);
-    } catch (err) {
-      console.error("Ledger RPC error:", err);
-      toast.error("No se pudo obtener el historial");
-    }
+  // =====================================================
+  // UI — Estados
+  // =====================================================
+
+  if (status === "loading") {
+    return (
+      <div style={{ padding: 20, color: "white" }}>
+        Cargando leaderboard…
+      </div>
+    );
   }
 
-  // ============================
-  // RENDER
-  // ============================
+  if (status === "error") {
+    return (
+      <div style={{ padding: 20, color: "red" }}>
+        Error cargando el leaderboard. Revisa consola.
+      </div>
+    );
+  }
+
+  // =====================================================
+  // UI PRINCIPAL
+  // =====================================================
+
   return (
-    <div className="page-container">
-      <h1 className="big">Historial Económico</h1>
+    <div style={{ padding: 20, color: "white" }}>
+      <h2>🏆 Leaderboard</h2>
 
-      {loading ? (
-        <p>Cargando…</p>
-      ) : (
-        <>
-          <section className="card ledger-card">
-            <h2>Tu historial</h2>
-
-            {ledger.length === 0 && <p>No hay transacciones aún.</p>}
-
-            {ledger.map((row) => (
-              <div
-                key={row.id}
-                className="ledger-entry"
-                style={{
-                  padding: "10px",
-                  marginBottom: "8px",
-                  borderRadius: "8px",
-                  backgroundColor: "#f3f3f3",
-                }}
-              >
-                <p><strong>Tipo:</strong> {row.type}</p>
-                <p><strong>Monto:</strong> {row.amount > 0 ? `+${row.amount}` : row.amount} monedas</p>
-                <p><strong>Descripción:</strong> {row.description}</p>
-                <p><strong>Fecha:</strong> {new Date(row.created_at).toLocaleString()}</p>
-              </div>
-            ))}
-          </section>
-        </>
+      {leaders.length === 0 && (
+        <p>No hay barcos registrados aún.</p>
       )}
+
+      {leaders.map((row, idx) => (
+        <div
+          key={row.id}
+          style={{
+            marginBottom: 14,
+            padding: 12,
+            border: "1px solid #4da3ff",
+            borderRadius: 8,
+          }}
+        >
+          <div>
+            <strong># {idx + 1}</strong>
+          </div>
+
+          <div><strong>User:</strong> {row.user_id}</div>
+          <div><strong>Isla actual:</strong> {row.current_island ?? "Desconocida"}</div>
+          <div><strong>Progreso:</strong> {row.travel_percent?.toFixed(2) ?? 0}%</div>
+
+          <div style={{ fontSize: "0.8em", marginTop: 4 }}>
+            <i>Actualizado: {row.updated_at}</i>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

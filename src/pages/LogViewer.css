@@ -1,0 +1,17 @@
+/* LogViewer.css — placeholder necesario para evitar error de Vite */
+
+.log-viewer-container {
+  padding: 16px;
+  font-family: monospace;
+  white-space: pre-wrap;
+  background: #0d1117;
+  color: #c9d1d9;
+  border-radius: 8px;
+  border: 1px solid #30363d;
+}
+
+.log-entry {
+  margin-bottom: 8px;
+  border-bottom: 1px solid #30363d;
+  padding-bottom: 6px;
+}

@@ -1,31 +1,28 @@
-// src/components/NavBar.jsx
-import React from "react";
-import { NavLink } from "react-router-dom";
-import "./navbar.css";
+// src/components/Navbar.jsx
+import { Link } from "react-router-dom";
 
-const LINKS = [
-  { label: "Inicio", route: "/", icon: "🏠" },
-  { label: "Explorar", route: "/explore", icon: "🧭" },
-  { label: "Inventario", route: "/inventory", icon: "🎒" },
-  { label: "Islas", route: "/islands", icon: "🏝️" },
-  { label: "Misiones", route: "/missions", icon: "📜" },
-];
-
-export default function NavBar() {
+export default function Navbar() {
   return (
-    <nav className="bottom-nav">
-      {LINKS.map((link) => (
-        <NavLink
-          key={link.route}
-          to={link.route}
-          className={({ isActive }) =>
-            isActive ? "nav-btn active" : "nav-btn"
-          }
-        >
-          <span className="nav-icon">{link.icon}</span>
-          <span className="nav-text">{link.label}</span>
-        </NavLink>
-      ))}
+    <nav
+      style={{
+        display: "flex",
+        gap: 20,
+        padding: 12,
+        background: "#0b0b0b",
+        borderBottom: "1px solid #333",
+        color: "white",
+      }}
+    >
+      <Link to="/">Home</Link>
+      <Link to="/explore">Explore</Link>
+      <Link to="/ship">Ship</Link>
+      <Link to="/missions">Missions</Link>
+      <Link to="/inventory">Inventory</Link>
+      <Link to="/store">Store</Link>
+      <Link to="/crew">Crew</Link>
+      <Link to="/map">Map</Link>
+      <Link to="/leaderboard">Leaderboard</Link>
+      <Link to="/profile">Profile</Link>
     </nav>
   );
 }
