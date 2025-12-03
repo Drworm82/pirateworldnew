@@ -1,6 +1,6 @@
 // ================================================
 // Home.jsx — Versión PRO v4 (Diciembre 2025)
-// Se asegura de inicializar automáticamente el barco
+// Inicializa automáticamente el barco si no existe
 // ================================================
 
 import React, { useEffect, useState } from "react";
@@ -13,19 +13,20 @@ export default function Home() {
 
   useEffect(() => {
     async function init() {
-      // 1) Asegurar usuario
+      // 1) Asegurar usuario anónimo
       const u = await ensureUser();
       setUserId(u.id);
 
-      // 2) Revisar si ya existe ship_state
+      // 2) Verificar si ya existe ship_state
       const state = await debugState(u.id);
 
+      // 3) Si no existe, inicializar barco
       if (!state) {
-        // 3) Si no existe, inicializar barco
+        console.log("Home.jsx → No existe ship_state, creando barco…");
         await initShip(u.id);
       }
 
-      // 4) Barco listo
+      // 4) Todo listo
       setShipReady(true);
       setLoading(false);
     }
@@ -33,7 +34,7 @@ export default function Home() {
     init();
   }, []);
 
-  // Mientras inicializa
+  // Pantalla mientras se inicializa
   if (loading) {
     return (
       <div
@@ -50,7 +51,7 @@ export default function Home() {
     );
   }
 
-  // Cuando ya terminó
+  // Pantalla principal
   return (
     <div
       style={{

@@ -1,78 +1,42 @@
-// src/components/SeaEventsBox.jsx
-import React, { useEffect, useState } from "react";
-import SeaEventCard from "./SeaEventCard.jsx";
-import eventsDict from "../config/eventsDict.js";
+// ======================================================================
+// SeaEventsBox.jsx — HUD ULTRA (evento actual)
+// ======================================================================
 
-/**
- * HUD emergente: muestra UN evento a la vez.
- * Ahora incluye sonidos según el tipo de evento.
- */
+import React from "react";
+import "./SeaEventsBox.css";
 
-export default function SeaEventsBox({ event }) {
-  const [visibleEvent, setVisibleEvent] = useState(null);
-  const [fadeClass, setFadeClass] = useState("fadeIn");
+export default function SeaEventsBox({ events }) {
+  if (!events || events.length === 0) return null;
 
-  // Cargar sonido según tipo de evento
-  function playEventSound(type) {
-    const filename = {
-      storm: "event_storm.mp3",
-      wind: "event_wind.mp3",
-      loot: "event_loot.mp3",
-      pirates: "event_pirates.mp3",
-      whale: "event_whale.mp3",
-      current: "event_current.mp3",
-      default: "event_default.mp3",
-    }[type] || "event_default.mp3";
+  const last = events[events.length - 1];
 
-    const audioPath = `/src/assets/sfx/${filename}`;
+  if (last.expired) return null;
 
-    const sfx = new Audio(audioPath);
-    sfx.volume = 0.55; // volumen recomendado
-    sfx.play().catch((err) => {
-      console.warn("Audio playback blocked:", err);
-    });
-  }
+  const typeClass = {
+    storm: "sev-storm",
+    pirates: "sev-pirates",
+    loot: "sev-loot",
+    waves: "sev-waves",
+    default: "sev-default",
+  }[last.type || "default"];
 
-  // Mostrar evento
-  useEffect(() => {
-    if (!event) return;
-
-    // Mostrar en pantalla
-    setVisibleEvent(event);
-    setFadeClass("fadeIn");
-
-    // Reproducir sonido
-    playEventSound(event.type);
-
-    // Auto fade-out después de 4.5s
-    const timer = setTimeout(() => setFadeClass("fadeOut"), 4500);
-
-    // Remover después del fade-out
-    const removeTimer = setTimeout(() => setVisibleEvent(null), 5500);
-
-    return () => {
-      clearTimeout(timer);
-      clearTimeout(removeTimer);
-    };
-  }, [event]);
-
-  if (!visibleEvent) return null;
+  const icon = {
+    storm: "⛈️",
+    pirates: "🏴‍☠️",
+    loot: "💰",
+    waves: "🌊",
+    default: "✨",
+  }[last.type || "default"];
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        top: 20,
-        right: 20,
-        zIndex: 200,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "flex-end",
-        transition: "opacity 0.4s ease",
-      }}
-      className={fadeClass}
-    >
-      <SeaEventCard event={visibleEvent} />
+    <div className={`sea-event-box ${typeClass}`}>
+      <div className="sev-icon">{icon}</div>
+
+      <div className="sev-content">
+        <div className="sev-title">{last.title}</div>
+        <div className="sev-desc">{last.description}</div>
+        <div className="sev-time">{last.time}</div>
+      </div>
     </div>
   );
 }
