@@ -1,113 +1,83 @@
-// ========================================================
-// Explore.jsx — Compatible V4 (startTravel + costs + UI)
-// ========================================================
+// =======================================================
+// Explore.jsx — PirateWorld (V5 REAL)
+// Flujo: Home → Explore → Ship
+// Backend MANDA, Frontend OBSERVA
+// =======================================================
 
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import {
   ensureUser,
-  loadIslands,
-  calculateTravelCost,
-  startTravel,
-  getShipProgress,
-} from "../lib/supaApi.js";
+  ship_travel_start_v4
+} from "../lib/supaApi";
 
 export default function Explore() {
-  const [userId, setUserId] = useState(null);
-  const [islands, setIslands] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [cost, setCost] = useState(null);
-  const [progress, setProgress] = useState(null);
+  const navigate = useNavigate();
 
-  // Init
+  const [loading, setLoading] = useState(true);
+  const [destination, setDestination] = useState("");
+
+  // ===================================================
+  // INIT
+  // ===================================================
   useEffect(() => {
     async function init() {
-      const user = await ensureUser();
-      setUserId(user.id);
-
-      const isl = await loadIslands();
-      setIslands(isl);
-
-      const p = await getShipProgress(user.id);
-      setProgress(p);
+      await ensureUser();
+      setLoading(false);
     }
     init();
   }, []);
 
-  // Seleccionar isla
-  async function handleSelect(isl) {
-    setSelected(isl);
+  // ===================================================
+  // START TRAVEL (V4 ACTIVO)
+  // ===================================================
+  async function handleTravel() {
+    if (!destination) return;
 
-    if (!userId) return;
-
-    const c = await calculateTravelCost(userId, isl.key);
-    if (c?.error) {
-      console.error("Cost error:", c);
-      return;
-    }
-
-    setCost(c);
+    await ship_travel_start_v4(destination);
+    navigate("/ship");
   }
 
-  // Iniciar viaje
-  async function handleStart() {
-    if (!userId || !selected) return;
-
-    const res = await startTravel(userId, selected.key);
-    console.log("startTravel:", res);
+  // ===================================================
+  // RENDER
+  // ===================================================
+  if (loading) {
+    return (
+      <div className="game-content">
+        <h2>Cargando…</h2>
+      </div>
+    );
   }
 
   return (
-    <div style={{ padding: 20, color: "white" }}>
-      <h1>🌍 Explorar Islas</h1>
+    <div className="game-content">
+      <h2>Explorar</h2>
 
-      {progress?.status === "traveling" && (
-        <div style={{ marginBottom: 20 }}>
-          <strong>Viaje en progreso:</strong> {progress.percent?.toFixed(1)}%
-        </div>
-      )}
+      <p>Destino (string backend):</p>
 
-      <h2>Selecciona un destino</h2>
+      <input
+        value={destination}
+        onChange={(e) => setDestination(e.target.value)}
+        placeholder="Bahía del Ajolote"
+        style={{
+          width: "100%",
+          padding: 10,
+          marginBottom: 12
+        }}
+      />
 
-      {islands.map((isl) => (
-        <div
-          key={isl.key}
-          onClick={() => handleSelect(isl)}
-          style={{
-            padding: 10,
-            marginBottom: 6,
-            background: selected?.key === isl.key ? "#333" : "#222",
-            borderRadius: 8,
-            cursor: "pointer",
-          }}
-        >
-          {isl.name}
-        </div>
-      ))}
-
-      {cost && (
-        <div style={{ marginTop: 20, padding: 10, background: "#222", borderRadius: 8 }}>
-          <h3>Costo del viaje</h3>
-          <p>Distancia: {cost.distance_km} km</p>
-          <p>Base: {cost.base_cost}</p>
-          <p>Variable: {cost.variable_cost}</p>
-          <p>
-            <strong>Total: {cost.total_cost} doblones</strong>
-          </p>
-          <button
-            onClick={handleStart}
-            style={{
-              marginTop: 10,
-              padding: "10px 15px",
-              background: "#4da3ff",
-              border: "none",
-              borderRadius: 8,
-              cursor: "pointer",
-            }}
-          >
-            Zarpar 🚢
-          </button>
-        </div>
-      )}
+      <button
+        onClick={handleTravel}
+        style={{
+          padding: 12,
+          width: "100%",
+          fontWeight: "bold",
+          cursor: "pointer"
+        }}
+      >
+        Zarpar
+      </button>
     </div>
   );
 }

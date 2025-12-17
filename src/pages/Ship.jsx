@@ -1,154 +1,108 @@
-// =============================================================
-// Ship.jsx — Vista del barco en tiempo real (V4 PRO FINAL)
-// =============================================================
+// =======================================================
+// Ship.jsx — PirateWorld (V5 REAL TIME)
+// Backend MANDA, Frontend OBSERVA
+// =======================================================
 
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import {
   ensureUser,
-  getShipProgress,
-  autoNav,
-} from "../lib/supaApi.js";
+  ship_travel_progress_v5,
+  ship_autonav_v4
+} from "../lib/supaApi";
 
 export default function Ship() {
-  const [userId, setUserId] = useState(null);
-  const [progress, setProgress] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
-  // ---------------------------------------------
-  // Init + Polling
-  // ---------------------------------------------
+  const [status, setStatus] = useState("loading"); // loading | traveling | arrived
+  const [progress, setProgress] = useState(null);
+  const [destination, setDestination] = useState("");
+
+  // ===================================================
+  // INIT + POLLING
+  // ===================================================
   useEffect(() => {
+    let interval = null;
+
     async function init() {
       const user = await ensureUser();
-      setUserId(user.id);
+      if (!user) return;
 
-      // Primera carga
-      const p = await getShipProgress(user.id);
-      setProgress(p);
-      setLoading(false);
+      await tick();
+      interval = setInterval(tick, 3000);
+    }
 
-      // Polling cada 1.5 s
-      const interval = setInterval(async () => {
-        const p2 = await getShipProgress(user.id);
-        setProgress(p2);
-      }, 1500);
+    async function tick() {
+      try {
+        await ship_autonav_v4();
 
-      return () => clearInterval(interval);
+        const data = await ship_travel_progress_v5();
+        if (!data) return;
+
+        setProgress(data);
+        setStatus(data.status);
+        setDestination(data.to_island);
+
+        if (data.status === "arrived") {
+          clearInterval(interval);
+        }
+      } catch (err) {
+        console.error("❌ Ship tick error", err);
+      }
     }
 
     init();
+
+    return () => interval && clearInterval(interval);
   }, []);
 
-  // ---------------------------------------------
-  // Autonav: fuerza un tick de eventos del mar
-  // ---------------------------------------------
-  async function handleAutoNav() {
-    if (!userId) return;
-
-    const res = await autoNav(userId);
-    console.log("AutoNav:", res);
-
-    const updated = await getShipProgress(userId);
-    setProgress(updated);
-  }
-
-  // ---------------------------------------------
-  // Render cargando
-  // ---------------------------------------------
-  if (loading || !progress) {
+  // ===================================================
+  // RENDER
+  // ===================================================
+  if (status === "loading") {
     return (
-      <div style={{ padding: 20, color: "white" }}>
-        <h2>⏳ Cargando estado del barco…</h2>
+      <div className="game-content">
+        <h2>Cargando viaje…</h2>
       </div>
     );
   }
 
-  // ---------------------------------------------
-  // Render UI
-  // ---------------------------------------------
-  return (
-    <div style={{ padding: 20, color: "white" }}>
-      <h1>🚢 Tu Barco</h1>
+  if (status === "arrived") {
+    return (
+      <div className="game-content">
+        <h2>Has llegado</h2>
+        <p>Destino: {destination}</p>
 
-      <div
-        style={{
-          padding: 15,
-          background: "rgba(0,0,0,0.50)",
-          borderRadius: 10,
-          border: "1px solid #4da3ff",
-          maxWidth: 420,
-        }}
-      >
-        <h3>Estado</h3>
-        <p>
-          <strong>{progress.status === "traveling" ? "Viajando" : "En puerto"}</strong>
-        </p>
-
-        <p>
-          <strong>Origen:</strong> {progress.origin}
-        </p>
-
-        <p>
-          <strong>Destino:</strong>{" "}
-          {progress.destination ? progress.destination : "—"}
-        </p>
-
-        <p>
-          <strong>Distancia total:</strong> {progress.distance_km} km
-        </p>
-
-        <p>
-          <strong>Avance:</strong> {progress.percent?.toFixed(1)}%
-        </p>
-
-        {/* Barra de progreso */}
-        <div
-          style={{
-            marginTop: 10,
-            width: "100%",
-            height: 10,
-            background: "#333",
-            borderRadius: 6,
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              height: "100%",
-              width: `${progress.percent}%`,
-              background: "#4da3ff",
-            }}
-          ></div>
-        </div>
-
-        {/* Posición actual */}
-        <div style={{ marginTop: 15 }}>
-          <p>
-            <strong>Lat:</strong> {Number(progress.current_lat).toFixed(5)}
-          </p>
-          <p>
-            <strong>Lng:</strong> {Number(progress.current_lng).toFixed(5)}
-          </p>
-        </div>
-
-        {/* Botón de autonav */}
-        {progress.status === "traveling" && (
-          <button
-            onClick={handleAutoNav}
-            style={{
-              marginTop: 15,
-              padding: "10px 15px",
-              background: "#4da3ff",
-              border: "none",
-              borderRadius: 8,
-              cursor: "pointer",
-              width: "100%",
-            }}
-          >
-            Forzar evento / Autonav ⚡
-          </button>
-        )}
+        <button onClick={() => navigate("/explore")}>
+          Volver a explorar
+        </button>
       </div>
+    );
+  }
+
+  return (
+    <div className="game-content">
+      <h2>Viajando…</h2>
+
+      <p>
+        <strong>Destino:</strong> {destination}
+      </p>
+
+      {progress && (
+        <>
+          <p>
+            <strong>Progreso:</strong>{" "}
+            {progress.percent?.toFixed(2)}%
+          </p>
+
+          <progress
+            value={progress.percent}
+            max={100}
+            style={{ width: "100%" }}
+          />
+        </>
+      )}
     </div>
   );
 }
