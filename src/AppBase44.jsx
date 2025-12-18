@@ -1,38 +1,37 @@
 // src/AppBase44.jsx
-// UI ONLY — Base44 Skeleton
-// No backend. No lógica real.
-// PirateWorld UI Contract.
+import { useEffect, useState } from "react";
 
 import GPS from "./pages/GPS.jsx";
 import Zarpar from "./pages/Zarpar.jsx";
 import Viaje from "./pages/Viaje.jsx";
-import Inventario from "./pages/Inventario.jsx";
-import Tienda from "./pages/Tienda.jsx";
-import Misiones from "./pages/Misiones.jsx";
-import Tripulacion from "./pages/Tripulacion.jsx";
-import Perfil from "./pages/Perfil.jsx";
-import MapaMundo from "./pages/MapaMundo.jsx";
-import BancoMundial from "./pages/BancoMundial.jsx";
-import Territorio from "./pages/Territorio.jsx";
-import ChatLocal from "./pages/ChatLocal.jsx";
-import Telegrafo from "./pages/Telegrafo.jsx";
-import Settings from "./pages/Settings.jsx";
+import SetupSupabase from "./pages/SetupSupabase.jsx";
 
 import BottomNav from "./navigation/BottomNav.jsx";
 import TopBar from "./navigation/TopBar.jsx";
 import SideMenu from "./navigation/SideMenu.jsx";
 
 function getRouteFromHash() {
-  const h = window.location.hash || "#/ui/gps";
+  const h = window.location.hash || "#/ui/setup";
   const raw = h.startsWith("#") ? h.slice(1) : h;
   return raw;
 }
 
 export default function AppBase44() {
-  const route = getRouteFromHash();
+  const [route, setRoute] = useState(() => getRouteFromHash());
+
+  useEffect(() => {
+    const onHashChange = () => {
+      setRoute(getRouteFromHash());
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
 
   function renderPage() {
     switch (route) {
+      case "/ui/setup":
+        return <SetupSupabase />;
+
       case "/ui/gps":
         return <GPS />;
 
@@ -42,41 +41,8 @@ export default function AppBase44() {
       case "/ui/viaje":
         return <Viaje />;
 
-      case "/ui/inventario":
-        return <Inventario />;
-
-      case "/ui/tienda":
-        return <Tienda />;
-
-      case "/ui/misiones":
-        return <Misiones />;
-
-      case "/ui/tripulacion":
-        return <Tripulacion />;
-
-      case "/ui/perfil":
-        return <Perfil />;
-
-      case "/ui/mapa":
-        return <MapaMundo />;
-
-      case "/ui/banco":
-        return <BancoMundial />;
-
-      case "/ui/territorio":
-        return <Territorio />;
-
-      case "/ui/chat":
-        return <ChatLocal />;
-
-      case "/ui/telegrafo":
-        return <Telegrafo />;
-
-      case "/ui/settings":
-        return <Settings />;
-
       default:
-        return <GPS />;
+        return <SetupSupabase />;
     }
   }
 
@@ -84,9 +50,7 @@ export default function AppBase44() {
     <div className="app-shell base44">
       <TopBar />
       <SideMenu />
-      <main style={{ paddingBottom: 80 }}>
-        {renderPage()}
-      </main>
+      <main>{renderPage()}</main>
       <BottomNav />
     </div>
   );

@@ -1,104 +1,137 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+// =======================================================
+// Zarpar.jsx — PirateWorld (UI SAFE / MOCK)
+// Pantalla previa al viaje (wireframe)
+// =======================================================
+
+import React, { useEffect, useState } from "react";
+import { shipTravelCostPreviewV5, shipTravelStartV5 } from "../lib/supaApi";
 
 export default function Zarpar() {
-  const navigate = useNavigate();
-  const [manualCoords, setManualCoords] = useState(false);
-  const [selectedDestination, setSelectedDestination] = useState('');
+  const [destination, setDestination] = useState("");
+  const [coords, setCoords] = useState({ lat: "", lng: "" });
+  const [preview, setPreview] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  // Placeholders para datos de backend
-  const availableDestinations = []; // Backend
-  const estimatedCost = 0; // Backend
-  const estimatedRisk = 0; // Backend
-  const estimatedETA = ''; // Backend
+  // ---------------------------------------------------
+  // PREVIEW (mock)
+  // ---------------------------------------------------
+  async function handlePreview() {
+    setLoading(true);
+    const p = await shipTravelCostPreviewV5({
+      destination,
+      lat: coords.lat,
+      lng: coords.lng,
+    });
+    setPreview(p);
+    setLoading(false);
+  }
 
+  // ---------------------------------------------------
+  // START TRAVEL (mock)
+  // ---------------------------------------------------
+  async function handleZarpar() {
+    await shipTravelStartV5();
+    window.location.hash = "#/ui/viaje";
+  }
+
+  // ---------------------------------------------------
+  // RENDER
+  // ---------------------------------------------------
   return (
-    <div className="p-4 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Zarpar</h1>
+    <div style={styles.page}>
+      <h2>Zarpar</h2>
 
-      {/* Selector de destino */}
-      <div className="bg-white border border-gray-300 rounded p-4 mb-4">
-        <h2 className="text-lg font-semibold text-gray-700 mb-3">Destino</h2>
-        
-        <div className="mb-4">
-          <label className="flex items-center gap-2 mb-2">
-            <input
-              type="checkbox"
-              checked={manualCoords}
-              onChange={(e) => setManualCoords(e.target.checked)}
-              className="w-4 h-4"
-            />
-            <span className="text-sm text-gray-600">Ingresar coordenadas manuales</span>
-          </label>
-        </div>
+      {/* DESTINATION */}
+      <div style={styles.card}>
+        <strong>Destino</strong>
+        <input
+          style={styles.input}
+          placeholder="Nombre de isla"
+          value={destination}
+          onChange={(e) => setDestination(e.target.value)}
+        />
+      </div>
 
-        {!manualCoords ? (
-          <div>
-            <label className="block text-sm text-gray-600 mb-2">Seleccionar destino</label>
-            <select
-              value={selectedDestination}
-              onChange={(e) => setSelectedDestination(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2"
-            >
-              <option value="">[Backend: Lista de destinos]</option>
-              <option value="dest1">Destino de ejemplo 1</option>
-              <option value="dest2">Destino de ejemplo 2</option>
-            </select>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Latitud</label>
-              <input
-                type="text"
-                placeholder="0.000000"
-                className="w-full border border-gray-300 rounded px-3 py-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Longitud</label>
-              <input
-                type="text"
-                placeholder="0.000000"
-                className="w-full border border-gray-300 rounded px-3 py-2"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Mapa simplificado */}
-        <div className="mt-4 h-48 border-2 border-dashed border-gray-400 flex items-center justify-center bg-gray-100">
-          <span className="text-gray-500">[Placeholder: Mapa simplificado]</span>
+      {/* COORDS */}
+      <div style={styles.card}>
+        <strong>Coordenadas (opcional)</strong>
+        <div style={styles.row}>
+          <input
+            style={styles.input}
+            placeholder="Latitud"
+            value={coords.lat}
+            onChange={(e) => setCoords({ ...coords, lat: e.target.value })}
+          />
+          <input
+            style={styles.input}
+            placeholder="Longitud"
+            value={coords.lng}
+            onChange={(e) => setCoords({ ...coords, lng: e.target.value })}
+          />
         </div>
       </div>
 
-      {/* Estimaciones */}
-      <div className="bg-white border border-gray-300 rounded p-4 mb-4">
-        <h2 className="text-lg font-semibold text-gray-700 mb-3">Estimaciones</h2>
-        
-        <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">Costo estimado:</span>
-            <span className="font-mono text-gray-800">[Backend: {estimatedCost} doblones]</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">Riesgo estimado:</span>
-            <span className="font-mono text-gray-800">[Backend: {estimatedRisk}%]</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">Tiempo estimado (ETA):</span>
-            <span className="font-mono text-gray-800">[Backend: {estimatedETA}]</span>
-          </div>
-        </div>
-      </div>
+      {/* PREVIEW */}
+      <button style={styles.button} onClick={handlePreview} disabled={loading}>
+        {loading ? "Calculando…" : "Ver costo y tiempo"}
+      </button>
 
-      {/* Botón zarpar */}
+      {preview && (
+        <div style={styles.card}>
+          <p>
+            <strong>Distancia:</strong> {preview.distance_km} km
+          </p>
+          <p>
+            <strong>Tiempo estimado:</strong> {preview.eta_minutes} min
+          </p>
+          <p>
+            <strong>Costo:</strong> {preview.cost_doblones} doblones
+          </p>
+          <p>
+            <strong>Riesgo:</strong> {preview.risk}
+          </p>
+        </div>
+      )}
+
+      {/* CONFIRM */}
       <button
-        onClick={() => navigate(createPageUrl('Viaje'))}
-        className="w-full bg-gray-800 text-white py-3 rounded font-semibold hover:bg-gray-700"
+        style={{ ...styles.button, marginTop: 8 }}
+        onClick={handleZarpar}
       >
         Zarpar
       </button>
     </div>
   );
 }
+
+// ---------------------------------------------------
+// STYLES (wireframe only)
+// ---------------------------------------------------
+
+const styles = {
+  page: {
+    padding: 16,
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  card: {
+    padding: 12,
+    border: "1px solid #ccc",
+    borderRadius: 6,
+    background: "#fff",
+  },
+  row: {
+    display: "flex",
+    gap: 8,
+    marginTop: 8,
+  },
+  input: {
+    flex: 1,
+    padding: 8,
+  },
+  button: {
+    padding: 12,
+    cursor: "pointer",
+  },
+};
