@@ -1,95 +1,63 @@
-import React from 'react';
+// src/pages/Tripulacion.jsx
+// UI ONLY — Base44 Skeleton
+// No backend. No lógica real.
+// PirateWorld UI Contract.
 
 export default function Tripulacion() {
-  // Placeholders para datos de backend
-  const crewMembers = []; // Backend
-  const synergies = []; // Backend
-  const shipStatus = ''; // Backend
-
   return (
-    <div className="p-4 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Tripulación</h1>
+    <div className="p-4">
+      <h1 className="text-2xl font-bold mb-4">Tripulación</h1>
 
-      {/* Estado del barco */}
-      <div className="bg-white border border-gray-300 rounded p-4 mb-4">
-        <h2 className="text-lg font-semibold text-gray-700 mb-3">Estado del Barco</h2>
-        <div className="text-sm text-gray-600">
-          [Backend: Estado del barco respecto a roles]
+      {/* Resumen de la tripulación */}
+      <section className="mb-6 border border-dashed border-gray-600 p-4 rounded">
+        <p className="text-sm">
+          Capitán: <strong>(placeholder)</strong>
+        </p>
+        <p className="text-sm">
+          Tamaño de la tripulación: <strong>(placeholder)</strong>
+        </p>
+        <p className="text-sm">
+          Reparto de botín del capitán: <strong>(placeholder)%</strong>
+        </p>
+      </section>
+
+      {/* Miembros */}
+      <section className="mb-6 border border-dashed border-gray-600 p-4 rounded">
+        <h2 className="text-lg font-semibold mb-2">Miembros</h2>
+
+        <ul className="space-y-2 text-sm">
+          <li>🧑‍✈️ Capitán — Rol: Capitán (placeholder)</li>
+          <li>🏴‍☠️ Pirata — Rol: (placeholder)</li>
+          <li>🏴‍☠️ Pirata — Rol: (placeholder)</li>
+        </ul>
+
+        <div className="mt-3 opacity-50 text-sm">
+          [Aquí se mostrará la lista real de miembros]
         </div>
-        <div className="mt-2 p-3 bg-gray-100 rounded">
-          <span className="font-mono text-gray-800">{shipStatus || 'Estado placeholder'}</span>
+      </section>
+
+      {/* Bonificaciones */}
+      <section className="mb-6 border border-dashed border-gray-600 p-4 rounded">
+        <h2 className="text-lg font-semibold mb-2">Bonificaciones de sinergia</h2>
+
+        <p className="text-sm opacity-70">
+          No hay bonificaciones activas.
+        </p>
+      </section>
+
+      {/* Acciones */}
+      <section className="border border-dashed border-gray-600 p-4 rounded">
+        <h2 className="text-lg font-semibold mb-2">Acciones</h2>
+
+        <div className="flex flex-col gap-2 text-sm">
+          <button className="border rounded px-2 py-1">
+            Invitar pirata (placeholder)
+          </button>
+          <button className="border rounded px-2 py-1">
+            Salir de la tripulación
+          </button>
         </div>
-      </div>
-
-      {/* Miembros de la tripulación */}
-      <div className="bg-white border border-gray-300 rounded p-4 mb-4">
-        <h2 className="text-lg font-semibold text-gray-700 mb-3">Miembros</h2>
-        
-        {crewMembers.length === 0 ? (
-          <div className="text-sm text-gray-500 mb-4">
-            [Backend: Lista de miembros de la tripulación]
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {crewMembers.map((member, idx) => (
-              <div key={idx} className="border border-gray-300 rounded p-3">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="font-semibold text-gray-700">{member.name}</div>
-                    <div className="text-sm text-gray-600">Rol: {member.role}</div>
-                  </div>
-                  <div className="text-sm text-gray-500">{member.status}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Miembros de ejemplo */}
-        <div className="space-y-2 mt-4">
-          {[1, 2, 3].map((idx) => (
-            <div key={idx} className="border border-gray-300 rounded p-3">
-              <div className="flex justify-between items-center">
-                <div>
-                  <div className="font-semibold text-gray-700">Miembro {idx}</div>
-                  <div className="text-sm text-gray-600">Rol: [Rol placeholder]</div>
-                </div>
-                <div className="text-sm text-gray-500">[Estado]</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Bonificaciones de sinergia */}
-      <div className="bg-white border border-gray-300 rounded p-4">
-        <h2 className="text-lg font-semibold text-gray-700 mb-3">Bonificaciones de Sinergia</h2>
-        
-        {synergies.length === 0 ? (
-          <div className="text-sm text-gray-500">
-            [Backend: Lista de bonificaciones activas por sinergias]
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {synergies.map((synergy, idx) => (
-              <div key={idx} className="bg-green-50 border border-green-200 rounded p-3">
-                <div className="font-semibold text-gray-700">{synergy.name}</div>
-                <div className="text-sm text-gray-600">{synergy.bonus}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Sinergias de ejemplo */}
-        <div className="space-y-2 mt-4">
-          {[1, 2].map((idx) => (
-            <div key={idx} className="bg-green-50 border border-green-200 rounded p-3">
-              <div className="font-semibold text-gray-700">Sinergia {idx}</div>
-              <div className="text-sm text-gray-600">[Bonificación placeholder]</div>
-            </div>
-          ))}
-        </div>
-      </div>
+      </section>
     </div>
   );
 }

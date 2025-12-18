@@ -1,3 +1,8 @@
+// src/navigation/TopBar.jsx
 export default function TopBar() {
-  return <div><strong>TopBar</strong></div>;
+  return (
+    <header className="p-2 border-b border-gray-700">
+      <strong>PirateWorld</strong>
+    </header>
+  );
 }
