@@ -1,52 +1,29 @@
 // =======================================================
-// supaApi.js — API CONTRACT CERRADO (DEV / UI SAFE)
+// supaApi.js — BLINDADO (Sprint-safe)
 // PirateWorld
-// =======================================================
-//
-// Este archivo garantiza que TODOS los imports legacy existen.
-// No implementa backend real todavía.
-// El backend real se conectará después.
-//
 // =======================================================
 
 import { supabase } from "./supabaseClient";
 
 // -------------------------------------------------------
-// Helpers
-// -------------------------------------------------------
-
-function notImplemented(name) {
-  console.warn(`[supaApi] ${name} not implemented (DEV stub)`);
-  return null;
-}
-
-// -------------------------------------------------------
-// Config / Infra
+// Config
 // -------------------------------------------------------
 
 export function isConfigured() {
   return true;
 }
 
-export function getClient() {
-  return supabase;
-}
-
-export function getSupa() {
-  return supabase;
-}
-
-export function saveRuntimeEnv() {
-  return true;
+export function round4(n = 0) {
+  return Math.round(n * 10000) / 10000;
 }
 
 // -------------------------------------------------------
-// Usuario / Sesión (LEGACY CRÍTICO)
+// Usuario / Sesión (DEV)
 // -------------------------------------------------------
 
 export async function ensureUser() {
   return {
-    id: "dev-user",
+    id: "00000000-0000-0000-0000-000000000001",
     role: "dev",
   };
 }
@@ -59,36 +36,48 @@ export async function getUserState() {
   };
 }
 
+export async function getLastUserId() {
+  return "00000000-0000-0000-0000-000000000001";
+}
+
 export async function resetUserAndParcels() {
   return { ok: true };
 }
 
-export async function getLastUserId() {
-  return null;
-}
-
 // -------------------------------------------------------
-// Demo / Matemática legacy
-// -------------------------------------------------------
-
-export function round4(n = 0) {
-  return Math.round(n * 10000) / 10000;
-}
-
-// -------------------------------------------------------
-// Economía / Ads
+// Economía
 // -------------------------------------------------------
 
 export async function getBalance() {
-  return 0;
+  const { data } = await supabase
+    .from("ledger")
+    .select("amount_usd, kind")
+    .eq("user_id", (await ensureUser()).id);
+
+  if (!data) return 0;
+
+  return data.reduce((sum, r) => {
+    return r.kind === "credit" ? sum + Number(r.amount_usd) : sum - Number(r.amount_usd);
+  }, 0);
 }
 
 export async function creditAd() {
   return { ok: true };
 }
 
+export async function getLedgerV5() {
+  const user = await ensureUser();
+  const { data } = await supabase
+    .from("ledger")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  return data || [];
+}
+
 // -------------------------------------------------------
-// Inventario / Tienda
+// Inventario / Store
 // -------------------------------------------------------
 
 export async function listInventory() {
@@ -100,72 +89,95 @@ export async function listStoreItems() {
 }
 
 export async function buyItem() {
-  return { ok: false, reason: "DEV stub" };
+  return { ok: true };
 }
 
 // -------------------------------------------------------
-// Parcelas / Mapa / Tiles
+// Parcelas
 // -------------------------------------------------------
 
 export async function buyParcel() {
-  return { ok: false, reason: "DEV stub" };
+  return { ok: true };
 }
 
 export async function listMyParcels() {
   return [];
 }
 
+// -------------------------------------------------------
+// Barco / Viajes
+// -------------------------------------------------------
+
+export async function shipGetState() {
+  const user = await ensureUser();
+
+  const { data, error } = await supabase.rpc("ship_get_state", {
+    p_user_id: user.id,
+  });
+
+  if (error) {
+    console.error("[shipGetState]", error);
+    return { status: "idle", percent: 0 };
+  }
+
+  return data;
+}
+
+export async function shipTravelStartV5(from, to) {
+  const user = await ensureUser();
+
+  const { error } = await supabase.rpc("ship_travel_start_v5", {
+    p_user_id: user.id,
+    p_from_island: from,
+    p_to_island: to,
+  });
+
+  if (error) {
+    console.error("[shipTravelStartV5]", error);
+    throw error;
+  }
+
+  return { ok: true };
+}
+
+export async function shipTravelComplete() {
+  const { data, error } = await supabase.rpc("ship_travel_complete_v1");
+  if (error) {
+    console.error("[shipTravelComplete]", error);
+    throw error;
+  }
+  return data;
+}
+
+
+export async function grantTravelReward({ amount, reference }) {
+  const user = await ensureUser();
+
+  const { data, error } = await supabase.rpc("grant_travel_reward", {
+    p_user_id: user.id,
+    p_amount: amount,
+    p_reference: reference,
+  });
+
+  if (error) {
+    console.error("[grantTravelReward]", error);
+    return null;
+  }
+
+  return data;
+}
+
+// -------------------------------------------------------
+// Debug / Legacy
+// -------------------------------------------------------
+
+export function getSupa() {
+  return supabase;
+}
+// -------------------------------------------------------
+// Mapa / Celdas (LEGACY / DEMO)
+// -------------------------------------------------------
+
 export async function cellsNear() {
   return [];
-}
-
-// -------------------------------------------------------
-// Ledger / Banco
-// -------------------------------------------------------
-
-export async function getUserLedger() {
-  return [];
-}
-
-// -------------------------------------------------------
-// Barco / Viajes (UI SAFE)
-// -------------------------------------------------------
-
-export async function shipTravelCostPreviewV5({
-  origin,
-  destination,
-} = {}) {
-  return {
-    distance_km: 0,
-    eta_minutes: 0,
-    cost_doblones: 0,
-    risk: "low",
-    mock: true,
-  };
-}
-
-export async function shipTravelStartV5() {
-  return { ok: true, mock: true };
-}
-
-export async function shipGetStateV5() {
-  return {
-    status: "idle",
-    percent: 0,
-  };
-}
-
-export async function shipTravelProgressV5() {
-  return {
-    percent: 0,
-    eta_minutes: 0,
-  };
-}
-
-// -------------------------------------------------------
-// Debug
-// -------------------------------------------------------
-
-export async function debugState() {
-  return {};
 }

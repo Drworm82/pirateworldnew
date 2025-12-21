@@ -1,137 +1,91 @@
 // =======================================================
-// Zarpar.jsx — PirateWorld (UI SAFE / MOCK)
-// Pantalla previa al viaje (wireframe)
+// Zarpar.jsx — PirateWorld
+// Selección de misión + inicio de viaje (CORE LOOP)
 // =======================================================
 
-import React, { useEffect, useState } from "react";
-import { shipTravelCostPreviewV5, shipTravelStartV5 } from "../lib/supaApi";
+import { useState } from "react";
+import { shipTravelStartV5 } from "../lib/supaApi";
+import { MISSIONS } from "../data/missions";
+
+const MISSION_KEY = "pw_active_mission";
+const MISSION_INDEX_KEY = "pw_mission_index";
 
 export default function Zarpar() {
-  const [destination, setDestination] = useState("");
-  const [coords, setCoords] = useState({ lat: "", lng: "" });
-  const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // ---------------------------------------------------
-  // PREVIEW (mock)
-  // ---------------------------------------------------
-  async function handlePreview() {
-    setLoading(true);
-    const p = await shipTravelCostPreviewV5({
-      destination,
-      lat: coords.lat,
-      lng: coords.lng,
-    });
-    setPreview(p);
-    setLoading(false);
+  const missionIndex =
+    Number(localStorage.getItem(MISSION_INDEX_KEY)) || 1;
+
+  const availableMissions = [];
+
+  if (missionIndex >= 1) availableMissions.push(MISSIONS.M1);
+  if (missionIndex >= 2) availableMissions.push(MISSIONS.M2);
+  if (missionIndex >= 3) availableMissions.push(MISSIONS.M3);
+
+  async function startMission(mission) {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Guardar misión activa
+      localStorage.setItem(
+  "pw_active_mission",
+  JSON.stringify({
+    key: mission.key,        // M1 | M2 | M3
+    reward: mission.reward,  // 150 | 200 | 300
+    risk: mission.risk       // low | medium | high
+  })
+);
+
+
+      // Iniciar viaje (backend / mock)
+      await shipTravelStartV5(
+        mission.origin,
+        mission.destination
+      );
+
+      // Ir a viaje
+      window.location.hash = "#/ui/viaje";
+    } catch (e) {
+      console.error("Error al zarpar:", e);
+      setError("No se pudo zarpar.");
+      alert("No se pudo zarpar. Revisa consola.");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  // ---------------------------------------------------
-  // START TRAVEL (mock)
-  // ---------------------------------------------------
-  async function handleZarpar() {
-    await shipTravelStartV5();
-    window.location.hash = "#/ui/viaje";
-  }
-
-  // ---------------------------------------------------
-  // RENDER
-  // ---------------------------------------------------
   return (
-    <div style={styles.page}>
-      <h2>Zarpar</h2>
+    <div className="page zarpar">
+      <h1>Zarpar</h1>
 
-      {/* DESTINATION */}
-      <div style={styles.card}>
-        <strong>Destino</strong>
-        <input
-          style={styles.input}
-          placeholder="Nombre de isla"
-          value={destination}
-          onChange={(e) => setDestination(e.target.value)}
-        />
-      </div>
+      {availableMissions.map((m) => (
+        <div key={m.id} className="card mission">
+          <h3>{m.title}</h3>
+          <p>{m.description}</p>
+          <p>
+            Ruta: {m.origin} → {m.destination}
+          </p>
+          <p>Recompensa: +{m.reward} doblones</p>
 
-      {/* COORDS */}
-      <div style={styles.card}>
-        <strong>Coordenadas (opcional)</strong>
-        <div style={styles.row}>
-          <input
-            style={styles.input}
-            placeholder="Latitud"
-            value={coords.lat}
-            onChange={(e) => setCoords({ ...coords, lat: e.target.value })}
-          />
-          <input
-            style={styles.input}
-            placeholder="Longitud"
-            value={coords.lng}
-            onChange={(e) => setCoords({ ...coords, lng: e.target.value })}
-          />
+          {m.risk === "high" && (
+            <p>
+              <strong>Riesgo alto</strong>
+            </p>
+          )}
+
+          <button
+            disabled={loading}
+            onClick={() => startMission(m)}
+          >
+            Zarpar
+          </button>
         </div>
-      </div>
+      ))}
 
-      {/* PREVIEW */}
-      <button style={styles.button} onClick={handlePreview} disabled={loading}>
-        {loading ? "Calculando…" : "Ver costo y tiempo"}
-      </button>
-
-      {preview && (
-        <div style={styles.card}>
-          <p>
-            <strong>Distancia:</strong> {preview.distance_km} km
-          </p>
-          <p>
-            <strong>Tiempo estimado:</strong> {preview.eta_minutes} min
-          </p>
-          <p>
-            <strong>Costo:</strong> {preview.cost_doblones} doblones
-          </p>
-          <p>
-            <strong>Riesgo:</strong> {preview.risk}
-          </p>
-        </div>
-      )}
-
-      {/* CONFIRM */}
-      <button
-        style={{ ...styles.button, marginTop: 8 }}
-        onClick={handleZarpar}
-      >
-        Zarpar
-      </button>
+      {loading && <p>Zarpando…</p>}
+      {error && <p className="error">{error}</p>}
     </div>
   );
 }
-
-// ---------------------------------------------------
-// STYLES (wireframe only)
-// ---------------------------------------------------
-
-const styles = {
-  page: {
-    padding: 16,
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-  },
-  card: {
-    padding: 12,
-    border: "1px solid #ccc",
-    borderRadius: 6,
-    background: "#fff",
-  },
-  row: {
-    display: "flex",
-    gap: 8,
-    marginTop: 8,
-  },
-  input: {
-    flex: 1,
-    padding: 8,
-  },
-  button: {
-    padding: 12,
-    cursor: "pointer",
-  },
-};

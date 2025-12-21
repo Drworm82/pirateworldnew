@@ -1,142 +1,74 @@
 // =======================================================
-// Viaje.jsx — PirateWorld (UI SAFE / MOCK)
-// Pantalla de viaje en curso (wireframe)
+// Viaje.jsx — PirateWorld (UX observa backend)
 // =======================================================
 
-import React, { useEffect, useState } from "react";
-import { shipTravelProgressV5 } from "../lib/supaApi";
+import { useEffect, useState } from "react";
+import {
+  shipGetState,
+  shipTravelComplete
+} from "../lib/supaApi";
 
 export default function Viaje() {
-  const [progress, setProgress] = useState(0);
-  const [eta, setEta] = useState(0);
-  const [events, setEvents] = useState([]);
+  const [state, setState] = useState(null);
+  const [phase, setPhase] = useState("traveling"); // traveling | resolving | done
+  const [result, setResult] = useState(null);
 
-  // ---------------------------------------------------
-  // MOCK PROGRESS LOOP
-  // ---------------------------------------------------
   useEffect(() => {
-    let pct = 0;
+    let timer = null;
 
-    const interval = setInterval(async () => {
-      pct = Math.min(pct + 5, 100);
+    async function poll() {
+      const s = await shipGetState();
+      setState(s);
 
-      const p = await shipTravelProgressV5();
-      setProgress(pct);
-      setEta(Math.max(0, 60 - pct));
+      // 👉 SOLO reaccionamos al arrived
+      if (s.status === "arrived" && phase === "traveling") {
+        setPhase("resolving");
 
-      if (pct % 25 === 0 && pct !== 0) {
-        setEvents((e) => [
-          ...e,
-          `Evento ocurrido al ${pct}% del viaje`,
-        ]);
+        setTimeout(async () => {
+          const r = await shipTravelComplete();
+          setResult(r);
+          setPhase("done");
+        }, 1200);
       }
+    }
 
-      if (pct === 100) {
-        clearInterval(interval);
-      }
-    }, 1000);
+    poll();
+    timer = setInterval(poll, 3000);
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => clearInterval(timer);
+  }, [phase]);
 
-  // ---------------------------------------------------
-  // RENDER
-  // ---------------------------------------------------
-  return (
-    <div style={styles.page}>
-      <h2>Viaje en curso</h2>
+  if (!state) {
+    return <div className="page viaje">Cargando viaje…</div>;
+  }
 
-      {/* PROGRESS */}
-      <div style={styles.card}>
-        <div style={styles.progressBar}>
-          <div
-            style={{
-              ...styles.progressFill,
-              width: `${progress}%`,
-            }}
-          />
-        </div>
-        <p>{progress}% completado</p>
+  if (phase === "resolving") {
+    return (
+      <div className="page viaje">
+        <h1>El destino se decide…</h1>
+        <p>El mar guarda silencio.</p>
       </div>
+    );
+  }
 
-      {/* STATS */}
-      <div style={styles.card}>
-        <p>
-          <strong>ETA:</strong> {eta} min
-        </p>
-        <p>
-          <strong>Velocidad:</strong> normal
-        </p>
-        <p>
-          <strong>Clima:</strong> estable
-        </p>
-        <p>
-          <strong>Riesgo:</strong> bajo
-        </p>
-        <p>
-          <strong>HP del barco:</strong> 100%
-        </p>
-      </div>
-
-      {/* EVENTS */}
-      <div style={styles.card}>
-        <strong>Eventos</strong>
-        {events.length === 0 && <p>Sin eventos aún</p>}
-        <ul>
-          {events.map((e, i) => (
-            <li key={i}>{e}</li>
-          ))}
-        </ul>
-      </div>
-
-      {/* ACTIONS */}
-      <div style={styles.actions}>
-        <button style={styles.button}>Acelerar (ver anuncio)</button>
-        <button
-          style={styles.button}
-          onClick={() => (window.location.hash = "#/ui/gps")}
-        >
-          Volver al GPS
+  if (phase === "done") {
+    return (
+      <div className="page viaje">
+        <h1>Viaje completado</h1>
+        <p>El viaje ha concluido.</p>
+        <button onClick={() => (window.location.hash = "#/ui/gps")}>
+          Regresar al mapa
         </button>
       </div>
+    );
+  }
+
+  return (
+    <div className="page viaje">
+      <h1>En travesía</h1>
+      <p>Estado: {state.status}</p>
+      <p>Progreso: {Math.floor(state.percent || 0)}%</p>
+      <p>El barco avanza entre las olas…</p>
     </div>
   );
 }
-
-// ---------------------------------------------------
-// STYLES (wireframe only)
-// ---------------------------------------------------
-
-const styles = {
-  page: {
-    padding: 16,
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-  },
-  card: {
-    padding: 12,
-    border: "1px solid #ccc",
-    borderRadius: 6,
-    background: "#fff",
-  },
-  progressBar: {
-    height: 16,
-    background: "#eee",
-    borderRadius: 8,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    background: "#999",
-  },
-  actions: {
-    display: "flex",
-    gap: 8,
-  },
-  button: {
-    flex: 1,
-    padding: 12,
-    cursor: "pointer",
-  },
-};
