@@ -1,150 +1,106 @@
-// =======================================================
-// GPS.jsx — PirateWorld (UI SAFE / MOCK)
-// Pantalla principal GPS (wireframe)
-// =======================================================
-
-import React, { useEffect, useState } from "react";
-import { shipGetStateV5 } from "../lib/supaApi";
+import React from "react";
 
 export default function GPS() {
-  const [shipState, setShipState] = useState(null);
-  const [mode, setMode] = useState("sedentario"); // sedentario | nomada
+  // FSM visual (mock)
+  const isFirstTime = true; // Estado 0
+  // const isNomad = true; // Estado 4 (si quieres probarlo, cambia el flag)
 
-  // ---------------------------------------------------
-  // INIT (mock)
-  // ---------------------------------------------------
-  useEffect(() => {
-    let mounted = true;
+  // ───── MOCK DATA ─────
+  const mockIslands = [
+    { id: 1, name: "Isla Tortuga", tag: "Cerca" },
+    { id: 2, name: "Isla del Viento", tag: "Nueva" },
+    { id: 3, name: "Atolón Sombrío", tag: "Rara" },
+  ];
 
-    async function load() {
-      const state = await shipGetStateV5();
-      if (mounted) setShipState(state);
-    }
+  const mockEvents = [
+    { id: 1, title: "Restos de naufragio", tag: "Cerca" },
+    { id: 2, title: "Mercader errante", tag: "Nuevo" },
+  ];
 
-    load();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  // ───── ESTILOS BASE (RESPETANDO UI EXISTENTE) ─────
+  const container = {
+    width: "100vw",
+    height: "100vh",
+    background: "#1a1f24",
+    color: "#ffffff",
+    display: "flex",
+    flexDirection: "column",
+  };
 
-  // ---------------------------------------------------
-  // RENDER
-  // ---------------------------------------------------
+  const hud = {
+    padding: "12px 16px",
+    borderBottom: "1px solid rgba(255,255,255,0.15)",
+    fontSize: "14px",
+  };
+
+  const mapArea = {
+    flex: 1,
+    position: "relative",
+    background: "#111",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "13px",
+    opacity: 0.85,
+  };
+
+  const panel = {
+    position: "absolute",
+    bottom: "16px",
+    left: "16px",
+    right: "16px",
+    background: "rgba(0,0,0,0.6)",
+    border: "1px solid rgba(255,255,255,0.15)",
+    padding: "12px",
+    fontSize: "13px",
+  };
+
+  const badge = (label) => ({
+    display: "inline-block",
+    marginLeft: "6px",
+    padding: "2px 6px",
+    fontSize: "11px",
+    border: "1px solid #666",
+    opacity: 0.9,
+  });
+
   return (
-    <div style={styles.page}>
-      <h2>GPS</h2>
-
-      {/* MAP PLACEHOLDER */}
-      <div style={styles.map}>
-        <div style={styles.mapLabel}>MAPA (placeholder)</div>
-
-        {/* Player */}
-        <div style={{ ...styles.marker, top: "50%", left: "50%" }}>
-          🧍
+    <div style={container}>
+      <div style={hud}>
+        <div>GPS · Mundo Real</div>
+        <div>
+          Estado:{" "}
+          {isFirstTime
+            ? "Primera vez (Estado 0)"
+            : "Modo nómada activo (Estado 4)"}
         </div>
-
-        {/* Island */}
-        <div style={{ ...styles.marker, top: "30%", left: "60%" }}>
-          🏝️
-        </div>
-
-        {/* Dungeon */}
-        <div style={{ ...styles.marker, top: "65%", left: "40%" }}>
-          🏚️
-        </div>
-
-        {/* Fog of war */}
-        <div style={styles.fog}>Fog of War</div>
       </div>
 
-      {/* INFO */}
-      <div style={styles.card}>
-        <strong>Estado del barco:</strong>{" "}
-        {shipState?.status ?? "desconocido"}
+      <div style={mapArea}>
+        Mapa mundo real (mock visual)
       </div>
 
-      {/* ACTIONS */}
-      <div style={styles.actions}>
-        <button style={styles.button}>Entrar al dungeon</button>
-        <button style={styles.button}>Ver mi barco</button>
-      </div>
+      <div style={panel}>
+        <div style={{ marginBottom: "8px" }}>
+          <strong>Islas cercanas</strong>
+        </div>
+        {mockIslands.map((isla) => (
+          <div key={isla.id}>
+            • {isla.name}
+            <span style={badge(isla.tag)}>{isla.tag}</span>
+          </div>
+        ))}
 
-      {/* MODE SWITCH */}
-      <div style={styles.card}>
-        <strong>Modo:</strong>{" "}
-        <button
-          style={styles.link}
-          onClick={() =>
-            setMode((m) => (m === "sedentario" ? "nomada" : "sedentario"))
-          }
-        >
-          {mode}
-        </button>
+        <div style={{ margin: "10px 0 8px" }}>
+          <strong>Eventos pasivos cercanos</strong>
+        </div>
+        {mockEvents.map((ev) => (
+          <div key={ev.id}>
+            • {ev.title}
+            <span style={badge(ev.tag)}>{ev.tag}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
-
-// ---------------------------------------------------
-// STYLES (wireframe only)
-// ---------------------------------------------------
-
-const styles = {
-  page: {
-    padding: 16,
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-  },
-  map: {
-    position: "relative",
-    height: 260,
-    border: "2px dashed #999",
-    borderRadius: 8,
-    background: "#f4f4f4",
-    overflow: "hidden",
-  },
-  mapLabel: {
-    position: "absolute",
-    top: 8,
-    left: 8,
-    fontSize: 12,
-    opacity: 0.6,
-  },
-  marker: {
-    position: "absolute",
-    transform: "translate(-50%, -50%)",
-    fontSize: 18,
-  },
-  fog: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-    width: "35%",
-    height: "100%",
-    background: "rgba(0,0,0,0.15)",
-    fontSize: 12,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  card: {
-    padding: 12,
-    border: "1px solid #ccc",
-    borderRadius: 6,
-    background: "#fff",
-  },
-  actions: {
-    display: "flex",
-    gap: 8,
-  },
-  button: {
-    flex: 1,
-    padding: 10,
-    cursor: "pointer",
-  },
-  link: {
-    marginLeft: 8,
-    cursor: "pointer",
-  },
-};

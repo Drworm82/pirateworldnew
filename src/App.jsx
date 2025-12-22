@@ -1,91 +1,60 @@
-// src/App.jsx
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
-import UserDemo from "./pages/UserDemo.jsx";
-import Ledger from "./pages/Ledger.jsx";
-import StorePage from "./pages/Store.jsx";
-import Inventory from "./pages/Inventory.jsx";
-import TilesDemo from "./pages/TilesDemo.jsx";
-import MapPage from "./pages/Map.jsx";
-import Missions from "./pages/Missions.jsx";
-import Profile from "./pages/Profile.jsx";
-import Leaderboard from "./pages/Leaderboard.jsx";
-import ExplorePage from "./pages/Explore.jsx";
-import CrewPage from "./pages/Crew.jsx";
-import ShipPage from "./pages/Ship.jsx";
+import GPS from "./pages/GPS.jsx";
+import Port from "./pages/Port.jsx";
+import HamburgerButton from "./components/HamburgerButton.jsx";
 
-import NavBar from "./components/NavBar.jsx";
+/* Placeholders CANON (UI-only) */
+function Profile() {
+  return <div>FSM · PROFILE (placeholder)</div>;
+}
 
-function getRouteFromHash() {
-  const h = window.location.hash || "#/";
-  const raw = h.startsWith("#") ? h.slice(1) : h;
-  if (!raw || raw === "/") return "/";
-  return raw;
+function Dev() {
+  return <div>FSM · DEV (placeholder)</div>;
+}
+
+/* Routing manual por hash (CANON) */
+const ROUTES = {
+  "/gps": GPS,
+  "/port": Port,
+  "/profile": Profile,
+  "/dev": Dev,
+};
+
+function resolveHash() {
+  const hash = window.location.hash || "#/gps";
+
+  // Quitar "#" y descartar query (?mode=travel)
+  const cleanPath = hash.replace("#", "").split("?")[0];
+
+  return ROUTES[cleanPath] ? cleanPath : "/gps";
 }
 
 export default function App() {
-  const [route, setRoute] = useState(() => getRouteFromHash());
+  const [route, setRoute] = useState(resolveHash());
 
   useEffect(() => {
-    console.log("[router] initial hash:", window.location.hash, "=>", route);
-    const onHashChange = () => {
-      const r = getRouteFromHash();
-      console.log("[router] hashchange:", window.location.hash, "=>", r);
-      setRoute(r);
-    };
+    const onHashChange = () => setRoute(resolveHash());
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
-  function renderPage() {
-    switch (route) {
-      case "/":
-      case "/demo":
-      case "/user":
-        return <UserDemo />;
-
-      case "/ledger":
-        return <Ledger />;
-
-      case "/store":
-        return <StorePage />;
-
-      case "/inventory":
-        return <Inventory />;
-
-      case "/tiles":
-        return <TilesDemo />;
-
-      case "/map":
-        return <MapPage />;
-
-      case "/missions":
-        return <Missions />;
-
-      case "/profile":
-        return <Profile />;
-
-      case "/explore":
-        return <ExplorePage />;
-
-      case "/leaderboard":
-        return <Leaderboard />;
-
-      case "/crew":
-        return <CrewPage />;
-
-      case "/ship":
-        return <ShipPage />;
-
-      default:
-        return <UserDemo />;
-    }
-  }
+  const Screen = ROUTES[route];
 
   return (
-    <div className="app-shell">
-      <NavBar currentRoute={route} />
-      <main>{renderPage()}</main>
+    <div
+      style={{
+        width: "100vw",
+        height: "100vh",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {/* Menú Hamburguesa — Overlay UI-only (CANON) */}
+      <HamburgerButton />
+
+      {/* Pantalla FSM base */}
+      <Screen />
     </div>
   );
 }
