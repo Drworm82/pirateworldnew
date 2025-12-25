@@ -1,82 +1,91 @@
+// src/components/HamburgerMenu.jsx
 import React from "react";
+import { overlayFSM, OVERLAY } from "../fsm/overlayFSM";
+import { navigationFSM } from "../fsm/navigationFSM";
 
-export default function HamburgerMenu({ open, onClose }) {
-  if (!open) return null;
+export default function HamburgerMenu({ onClose }) {
+  const items = [
+    {
+      label: "GPS / Mundo real",
+      icon: "🧭",
+      action: () => {
+        navigationFSM.closeToIdle();
+        overlayFSM.close();
+      },
+    },
+    { label: "Tripulación", icon: "👥", action: () => overlayFSM.open(OVERLAY.CREW) },
+    { label: "Misiones", icon: "📜", action: () => overlayFSM.open(OVERLAY.MISSIONS) },  // Línea corregida
+    { label: "Banco Mundial", icon: "🏦", action: () => {} },
+    { label: "Territorio", icon: "📍", action: () => {} },
+    { label: "Chat Local", icon: "💬", action: () => {} },
+    { label: "Telégrafo", icon: "📨", action: () => {} },
+    { label: "Perfil", icon: "👤", action: () => navigationFSM.openProfile() },
+  ];
 
   return (
-    <div style={styles.overlay}>
-      <div style={styles.menu}>
-        <div style={styles.header}>
-          <span>Menú</span>
-          <button onClick={onClose} style={styles.close}>✕</button>
+    <>
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.5)",
+          zIndex: 1000,
+        }}
+        onClick={onClose}
+      />
+      <aside
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: 260,
+          background: "#ffffff",
+          zIndex: 1001,
+          boxShadow: "2px 0 12px rgba(0,0,0,0.2)",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div
+          style={{
+            height: 56,
+            paddingLeft: 56,
+            display: "flex",
+            alignItems: "center",
+            borderBottom: "1px solid var(--color-border-light)",
+            fontSize: 18,
+            fontWeight: 600,
+          }}
+        >
+          Menú
         </div>
-
-        <ul style={styles.list}>
-          {MENU_ITEMS.map((label) => (
-            <li
-              key={label}
-              style={styles.item}
-              onClick={() => console.log(`[MENU] ${label}`)}
+        <nav style={{ padding: 8, overflowY: "auto" }}>
+          {items.map((i) => (
+            <button
+              key={i.label}
+              onClick={() => {
+                i.action();
+                onClose();
+              }}
+              style={{
+                width: "100%",
+                display: "flex",
+                gap: 12,
+                padding: 12,
+                border: "none",
+                background: "transparent",
+                textAlign: "left",
+                cursor: "pointer",
+                fontSize: 14,
+              }}
             >
-              {label}
-            </li>
+              <span style={{ width: 20 }}>{i.icon}</span>
+              {i.label}
+            </button>
           ))}
-        </ul>
-      </div>
-    </div>
+        </nav>
+      </aside>
+    </>
   );
 }
-
-const MENU_ITEMS = [
-  "Tripulación",
-  "Banco Mundial",
-  "Misiones",
-  "Parcelas / Territorio",
-  "Chat Local",
-  "Telégrafo",
-  "Perfil",
-  "Logout",
-];
-
-const styles = {
-  overlay: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.4)",
-    zIndex: 1000,
-    display: "flex",
-    justifyContent: "flex-start",
-  },
-  menu: {
-    width: "280px",
-    height: "100%",
-    background: "#1e1e1e",
-    color: "#fff",
-    padding: "16px",
-    boxShadow: "2px 0 10px rgba(0,0,0,0.5)",
-  },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "16px",
-    fontWeight: "bold",
-  },
-  close: {
-    background: "none",
-    border: "none",
-    color: "#fff",
-    fontSize: "18px",
-    cursor: "pointer",
-  },
-  list: {
-    listStyle: "none",
-    padding: 0,
-    margin: 0,
-  },
-  item: {
-    padding: "10px 0",
-    borderBottom: "1px solid #333",
-    cursor: "pointer",
-  },
-};

@@ -1,45 +1,109 @@
-// src/pages/Misiones.jsx
-// UI ONLY — Base44 Skeleton
-// No backend. No lógica real.
-// PirateWorld UI Contract.
+import React, { useEffect, useState } from "react";
+import { getSupa } from "../lib/supaApi";
+
+/**
+ * Misiones — Overlay RO
+ * Sprint 79
+ *
+ * ✔ UI-only
+ * ✔ Read-only real
+ * ✔ Overlay-safe
+ * ✔ Sin FSM
+ * ✔ Sin CTA
+ * ✔ Sin backend writes
+ */
 
 export default function Misiones() {
+  const UI = {
+    LOADING: "LOADING",
+    EMPTY: "EMPTY",
+    READY: "READY",
+    ERROR: "ERROR",
+  };
+
+  const [uiState, setUiState] = useState(UI.LOADING);
+  const [missions, setMissions] = useState([]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadMissions() {
+      setUiState(UI.LOADING);
+
+      try {
+        const supa = getSupa();
+
+        const { data, error } = await supa.rpc("rpc_get_missions_ro");
+
+        if (!mounted) return;
+
+        if (error) {
+          console.error("Misiones RPC error:", error);
+          setUiState(UI.ERROR);
+          return;
+        }
+
+        if (!Array.isArray(data) || data.length === 0) {
+          setMissions([]);
+          setUiState(UI.EMPTY);
+          return;
+        }
+
+        setMissions(data);
+        setUiState(UI.READY);
+      } catch (err) {
+        console.error("Misiones load error:", err);
+        setUiState(UI.ERROR);
+      }
+    }
+
+    loadMissions();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <div className="p-4">
       <h1 className="text-2xl font-bold mb-4">Misiones</h1>
 
-      {/* Resumen */}
-      <section className="mb-6 border border-dashed border-gray-600 p-4 rounded">
-        <p className="text-sm">
-          Misiones activas: <strong>(placeholder)</strong>
+      {uiState === UI.LOADING && (
+        <p className="text-sm opacity-70">Cargando misiones…</p>
+      )}
+
+      {uiState === UI.ERROR && (
+        <p className="text-sm text-red-500">
+          Error al cargar las misiones.
         </p>
-        <p className="text-sm">
-          Misiones completadas: <strong>(placeholder)</strong>
+      )}
+
+      {uiState === UI.EMPTY && (
+        <p className="text-sm opacity-70">
+          No hay misiones disponibles por ahora.
         </p>
-      </section>
+      )}
 
-      {/* Misiones activas */}
-      <section className="mb-6 border border-dashed border-gray-600 p-4 rounded">
-        <h2 className="text-lg font-semibold mb-2">Misiones activas</h2>
-
-        <div className="text-sm opacity-70">
-          No hay misiones activas en este momento.
-        </div>
-
-        {/* Ejemplo placeholder */}
-        <div className="mt-3 opacity-50 text-sm">
-          [Aquí se mostrarán tarjetas de misión con progreso]
-        </div>
-      </section>
-
-      {/* Misiones completadas */}
-      <section className="border border-dashed border-gray-600 p-4 rounded">
-        <h2 className="text-lg font-semibold mb-2">Misiones completadas</h2>
-
-        <div className="text-sm opacity-70">
-          Aún no has completado misiones.
-        </div>
-      </section>
+      {uiState === UI.READY && (
+        <ul className="space-y-3 text-sm">
+          {missions.map((m) => (
+            <li
+              key={m.id}
+              className="border border-dashed border-gray-600 p-3 rounded"
+            >
+              <div className="font-semibold">{m.title}</div>
+              {m.description && (
+                <p className="opacity-70 mt-1">{m.description}</p>
+              )}
+              {m.status && (
+                <div className="mt-2 opacity-60">
+                  Estado: {m.status}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

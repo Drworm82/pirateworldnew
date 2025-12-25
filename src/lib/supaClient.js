@@ -1,31 +1,9 @@
 // src/lib/supaClient.js
 import { createClient } from "@supabase/supabase-js";
 
-const SUPA_URL =
-  import.meta.env.VITE_SUPABASE_URL_PROD ||
-  import.meta.env.VITE_SUPABASE_URL;
-
+// 🔴 DEV FORZADO — Sprint 31
+const SUPA_URL = "https://igigwtxsgccudwqngxsf.supabase.co";
 const SUPA_KEY =
-  import.meta.env.VITE_SUPABASE_ANON_KEY_PROD ||
-  import.meta.env.VITE_SUPABASE_ANON_KEY;
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnaWd3dHhzZ2NjdWR3cW5neHNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3NjMyOTYsImV4cCI6MjA3NzMzOTI5Nn0.l24NG8gvuwymFkFn3gbBi9W93JFYnsdN-0DSyGNWnn8";
 
-// Crea el cliente solo si hay credenciales válidas
-export const supabase = (SUPA_URL && SUPA_KEY) ? createClient(SUPA_URL, SUPA_KEY) : null;
-
-export function getClient() {
-  if (!supabase) throw new Error("Supabase no configurado.");
-  return supabase;
-}
-
-// Helpers opcionales
-export function isConfigured() {
-  return !!supabase;
-}
-
-// Guardar pares en localStorage para diagnóstico (no modifica process.env)
-export function saveRuntimeEnv(url, key) {
-  try {
-    if (url) localStorage.setItem("VITE_SUPABASE_URL", url);
-    if (key) localStorage.setItem("VITE_SUPABASE_ANON_KEY", key);
-  } catch {}
-}
+export const supabase = createClient(SUPA_URL, SUPA_KEY);

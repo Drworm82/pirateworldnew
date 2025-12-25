@@ -36,3 +36,11 @@
   --radius-base: 8px;
   --padding-base: 16px;
 }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-base);
+  background: var(--color-bg-main);
+  color: var(--color-text-primary);
+}

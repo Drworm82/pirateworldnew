@@ -1,60 +1,83 @@
 import React, { useEffect, useState } from "react";
+import { FSM, getState, subscribe } from "./fsm/fsmController";
+import { overlayFSM, OVERLAY } from "./fsm/overlayFSM";
 
 import GPS from "./pages/GPS.jsx";
 import Port from "./pages/Port.jsx";
+import Profile from "./pages/Profile.jsx";
+import Misiones from "./pages/Misiones.jsx";
+
+import InventoryOverlay from "./components/InventoryOverlay.jsx";
+import CrewOverlay from "./components/CrewOverlay.jsx";
+import RpgMapOverlay from "./components/RpgMapOverlay.jsx";
+import EventOverlay from "./components/EventOverlay.jsx";
+
+import HamburgerMenu from "./components/HamburgerMenu.jsx";
 import HamburgerButton from "./components/HamburgerButton.jsx";
+import NavBar from "./components/NavBar.jsx";
 
-/* Placeholders CANON (UI-only) */
-function Profile() {
-  return <div>FSM · PROFILE (placeholder)</div>;
-}
+import "./theme.css";
 
-function Dev() {
-  return <div>FSM · DEV (placeholder)</div>;
-}
-
-/* Routing manual por hash (CANON) */
-const ROUTES = {
-  "/gps": GPS,
-  "/port": Port,
-  "/profile": Profile,
-  "/dev": Dev,
-};
-
-function resolveHash() {
-  const hash = window.location.hash || "#/gps";
-
-  // Quitar "#" y descartar query (?mode=travel)
-  const cleanPath = hash.replace("#", "").split("?")[0];
-
-  return ROUTES[cleanPath] ? cleanPath : "/gps";
+function ScreenByState({ fsmState }) {
+  switch (fsmState) {
+    case FSM.S0:
+    case FSM.S1:
+      return <GPS fsmState={fsmState} />;
+    case FSM.S2:
+    case FSM.S3:
+      return <Port fsmState={fsmState} />;
+    case FSM.S5:
+      return <Profile />;
+    default:
+      return null;
+  }
 }
 
 export default function App() {
-  const [route, setRoute] = useState(resolveHash());
+  const [fsmState, setFsmState] = useState(getState().currentState);
+  const [currentOverlay, setCurrentOverlay] = useState(overlayFSM.getCurrent());
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [bootReady, setBootReady] = useState(false);
 
   useEffect(() => {
-    const onHashChange = () => setRoute(resolveHash());
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
+    const id = setTimeout(() => setBootReady(true), 0);
+    return () => clearTimeout(id);
   }, []);
 
-  const Screen = ROUTES[route];
+  // Suscripción FSM Principal
+  useEffect(() => {
+    return subscribe((state) => {
+      setFsmState(state.currentState);
+    });
+  }, []);
+
+  // Suscripción Overlay FSM
+  useEffect(() => {
+    return overlayFSM.subscribe((state) => {
+      setCurrentOverlay(state.current);
+    });
+  }, []);
 
   return (
-    <div
-      style={{
-        width: "100vw",
-        height: "100vh",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      {/* Menú Hamburguesa — Overlay UI-only (CANON) */}
-      <HamburgerButton />
+    <>
+      {/* PANTALLA PRINCIPAL */}
+      <ScreenByState fsmState={fsmState} />
 
-      {/* Pantalla FSM base */}
-      <Screen />
-    </div>
+      {/* RENDERIZADO DE OVERLAYS (Capa Superior) */}
+      {currentOverlay === OVERLAY.INVENTORY && <InventoryOverlay />}
+      {currentOverlay === OVERLAY.CREW && <CrewOverlay />}
+      {currentOverlay === OVERLAY.MAP_RPG && <RpgMapOverlay />}
+      {currentOverlay === OVERLAY.MISSIONS && <Misiones />}
+
+      {/* EVENTO BLOQUEANTE */}
+      {bootReady && currentOverlay === OVERLAY.EVENT && <EventOverlay />}
+
+      {/* MENÚ HAMBURGUESA */}
+      {menuOpen && <HamburgerMenu onClose={() => setMenuOpen(false)} />}
+      <HamburgerButton onClick={() => setMenuOpen(v => !v)} />
+
+      {/* HUD NAVEGACIÓN */}
+      <NavBar />
+    </>
   );
 }

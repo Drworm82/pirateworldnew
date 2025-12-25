@@ -2,15 +2,40 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
 
-    <!-- PWA meta (modernas) -->
+    <!-- PWA -->
     <meta name="mobile-web-app-capable" content="yes" />
 
-    <!-- Evita 404 del favicon en dev -->
+    <!-- Favicon (evita 404 en dev) -->
     <link rel="icon" href="/icons/apple-touch-icon.png" />
 
     <title>PirateWorld</title>
+
+    <!-- RESET + BASE CANON -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #111; /* FONDO CANON */
+        overflow: hidden; /* NO scroll fantasma */
+        touch-action: none; /* Evita drag raro en móvil */
+      }
+
+      #root {
+        width: 100%;
+        height: 100%;
+        background: #111;
+        position: fixed;
+        inset: 0;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

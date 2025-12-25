@@ -3,7 +3,7 @@
 // PirateWorld
 // =======================================================
 
-import { supabase } from "./supabaseClient";
+import { supabase } from "./supaClient";
 
 // -------------------------------------------------------
 // Config
@@ -180,4 +180,18 @@ export function getSupa() {
 
 export async function cellsNear() {
   return [];
+}
+
+// READ-ONLY: resumen ligero del jugador
+export async function getPlayerSummary() {
+  const { data, error } = await supabase
+    .rpc("rpc_get_player_summary");
+
+  if (error) {
+    console.error("[getPlayerSummary] error:", error);
+    return { rank: null, title: null, inventory_counts: {} };
+  }
+
+  // La RPC devuelve una fila
+  return data?.[0] ?? { rank: null, title: null, inventory_counts: {} };
 }

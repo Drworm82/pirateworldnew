@@ -1,8 +1,9 @@
 import React from "react";
+import { overlayFSM, OVERLAY } from "../fsm/overlayFSM";
 
-export default function CrewOverlay({ onClose }) {
+export default function CrewOverlay() {
   const backdrop = {
-    position: "absolute",
+    position: "fixed", // Cambiar a fixed para alinearlo con los otros overlays
     inset: 0,
     background: "rgba(0,0,0,0.5)",
     zIndex: 30,
@@ -19,24 +20,21 @@ export default function CrewOverlay({ onClose }) {
     borderLeft: "1px solid #444",
   };
 
-  const header = {
-    display: "flex",
-    justifyContent: "space-between",
-    marginBottom: "10px",
-  };
-
   const member = {
     fontSize: "13px",
     padding: "6px 0",
     borderBottom: "1px solid #333",
   };
 
+  function handleBackdropClick() {
+    overlayFSM.close(); // Cierra el overlay al hacer clic fuera
+  }
+
   return (
-    <div style={backdrop} onClick={onClose}>
+    <div style={backdrop} onClick={handleBackdropClick}>
       <div style={panel} onClick={(e) => e.stopPropagation()}>
-        <div style={header}>
-          <div>Tripulación (RO)</div>
-          <button onClick={onClose}>X</button>
+        <div style={{ marginBottom: "10px", fontWeight: "bold" }}>
+          Tripulación (RO)
         </div>
 
         <div style={member}>Capitán — Moral: 😊</div>

@@ -1,30 +1,26 @@
-import React, { useState } from "react";
-import HamburgerMenu from "./HamburgerMenu";
+// src/components/HamburgerButton.jsx
+import React from "react";
 
-export default function HamburgerButton() {
-  const [open, setOpen] = useState(false);
-
+export default function HamburgerButton({ onClick }) {
   return (
-    <>
-      <button style={styles.button} onClick={() => setOpen(true)}>
-        ☰
-      </button>
-
-      <HamburgerMenu open={open} onClose={() => setOpen(false)} />
-    </>
+    <button
+      onClick={onClick}
+      aria-label="Menú"
+      style={{
+        position: "fixed",
+        top: 12,
+        left: 12,
+        zIndex: 3000,
+        width: 32,
+        height: 32,
+        borderRadius: "8px",
+        background: "#ffffff",
+        border: "1px solid #e5e7eb",
+        fontSize: "18px",
+        cursor: "pointer",
+      }}
+    >
+      ☰
+    </button>
   );
 }
-
-const styles = {
-  button: {
-    position: "fixed",
-    top: "12px",
-    left: "12px",
-    zIndex: 900,
-    background: "#1e1e1e",
-    color: "#fff",
-    border: "1px solid #444",
-    padding: "6px 10px",
-    cursor: "pointer",
-  },
-};

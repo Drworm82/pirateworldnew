@@ -1,110 +1,171 @@
-// src/pages/Profile.jsx
-import React from "react";
+import React, { useEffect, useState } from "react";
+import * as supaApi from "../lib/supaApi";
+import { UI_STATE, resolveUIState } from "../fsm/uiStateFSM";
 
 /**
- * Worker 11C — Mock Perfil / Reputación
- * UI-only · FSM-first
- * NO backend · NO Supabase · NO lógica real
+ * PROFILE — UI Read-Only
+ * FSM UI States (Sprint 67)
  */
 
 export default function Profile() {
-  // ===============================
-  // MOCK DATA (hardcoded, local)
-  // ===============================
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-  const captainTitle = "Capitán del Mar Interior";
+  useEffect(() => {
+    let alive = true;
 
-  const prestigeBadge = {
-    label: "Prestigio Alto",
-    tone: "prestige-high", // solo semántico / visual
-  };
+    async function loadProfile() {
+      try {
+        setLoading(true);
+        setError(false);
+        const result = await supaApi.getPlayerSummary();
+        if (!alive) return;
+        setData(result ?? null);
+      } catch (e) {
+        console.error("[PROFILE]", e);
+        if (alive) setError(true);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
 
-  const emblem = {
-    name: "Bandera del Ajolote",
-    symbol: "🏴‍☠️", // placeholder visual simple
-  };
+    loadProfile();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-  const timeline = [
-    {
-      id: 1,
-      title: "Primer Zarpe",
-      description: "El capitán inició su primera travesía.",
-    },
-    {
-      id: 2,
-      title: "Puerto Consolidado",
-      description: "Estableció relaciones comerciales estables.",
-    },
-    {
-      id: 3,
-      title: "Ruta Segura",
-      description: "Completó múltiples viajes sin incidentes.",
-    },
-    {
-      id: 4,
-      title: "Nombre Reconocido",
-      description: "Su reputación comenzó a circular entre puertos.",
-    },
-  ];
+  const uiState = resolveUIState({
+    loading,
+    error,
+    data,
+    isEmpty: !data,
+  });
 
-  const socialBadges = [
-    { id: "trust", label: "Confiable" },
-    { id: "explorer", label: "Explorador" },
-    { id: "merchant", label: "Mercader" },
-  ];
+  // ----------------------------
+  // RENDER POR ESTADO UI (CANON)
+  // ----------------------------
 
-  // ===============================
-  // RENDER
-  // ===============================
+  if (uiState === UI_STATE.LOADING) {
+    return (
+      <div style={styles.container}>
+        <Header />
+        <div style={styles.center}>Cargando perfil…</div>
+      </div>
+    );
+  }
 
+  if (uiState === UI_STATE.ERROR || uiState === UI_STATE.EMPTY) {
+    return (
+      <div style={styles.container}>
+        <Header />
+        <div style={styles.center}>Perfil no disponible</div>
+      </div>
+    );
+  }
+
+  // READY
   return (
-    <div className="page profile-page">
-      {/* Header / Identidad */}
-      <section className="profile-header">
-        <div className="profile-emblem">
-          <div className="emblem-symbol">{emblem.symbol}</div>
-          <div className="emblem-name">{emblem.name}</div>
-        </div>
+    <div style={styles.container}>
+      <Header />
 
-        <div className="profile-identity">
-          <h1 className="captain-title">{captainTitle}</h1>
+      <Block label="Rango" value={data.rank} />
+      <Block label="Título" value={data.title} />
+      <Block label="Reputación" value={data.reputation_score} />
 
-          <div className={`prestige-badge ${prestigeBadge.tone}`}>
-            {prestigeBadge.label}
-          </div>
-        </div>
-      </section>
+      <div style={styles.divider} />
 
-      {/* Badges sociales */}
-      <section className="profile-badges">
-        <h2 className="section-title">Rasgos Sociales</h2>
-        <div className="badges-row">
-          {socialBadges.map((b) => (
-            <span key={b.id} className="social-badge">
-              {b.label}
-            </span>
-          ))}
-        </div>
-      </section>
-
-      {/* Timeline narrativa */}
-      <section className="profile-timeline">
-        <h2 className="section-title">Historia del Capitán</h2>
-
-        <ul className="timeline-list">
-          {timeline.map((item) => (
-            <li key={item.id} className="timeline-item">
-              <div className="timeline-marker" />
-              <div className="timeline-content">
-                <div className="timeline-title">{item.title}</div>
-                <div className="timeline-description">
-                  {item.description}
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <div style={styles.stats}>
+        <Stat label="Tripulación" value={data.crew_count} />
+        <Stat label="Islas" value={data.islands_count} />
+        <Stat label="Viajes" value={data.travel_count} />
+      </div>
     </div>
   );
 }
+
+/* ───────────────────────────── */
+
+function Header() {
+  return (
+    <div style={styles.header}>
+      <span>Perfil</span>
+    </div>
+  );
+}
+
+function Block({ label, value }) {
+  return (
+    <div style={styles.block}>
+      <div style={styles.label}>{label}</div>
+      <div style={styles.value}>{value ?? "—"}</div>
+    </div>
+  );
+}
+
+function Stat({ label, value }) {
+  return (
+    <div style={styles.stat}>
+      <div style={styles.statValue}>{value ?? 0}</div>
+      <div style={styles.statLabel}>{label}</div>
+    </div>
+  );
+}
+
+/* ───────────────────────────── */
+
+const styles = {
+  container: {
+    width: "100vw",
+    height: "100vh",
+    background: "#111",
+    color: "#fff",
+    display: "flex",
+    flexDirection: "column",
+  },
+  header: {
+    padding: "12px 16px",
+    borderBottom: "1px solid rgba(255,255,255,0.15)",
+    fontSize: "15px",
+    fontWeight: "bold",
+  },
+  center: {
+    flex: 1,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: 0.8,
+    fontSize: "14px",
+  },
+  block: {
+    padding: "14px 16px",
+    borderBottom: "1px solid rgba(255,255,255,0.08)",
+  },
+  label: {
+    fontSize: "12px",
+    opacity: 0.7,
+  },
+  value: {
+    fontSize: "16px",
+    marginTop: "2px",
+  },
+  divider: {
+    height: "12px",
+  },
+  stats: {
+    display: "flex",
+    justifyContent: "space-around",
+    padding: "12px 0",
+  },
+  stat: {
+    textAlign: "center",
+  },
+  statValue: {
+    fontSize: "18px",
+  },
+  statLabel: {
+    fontSize: "11px",
+    opacity: 0.7,
+  },
+};
