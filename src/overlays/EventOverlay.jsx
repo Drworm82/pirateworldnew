@@ -1,16 +1,23 @@
-// src/overlays/EventOverlay.jsx
-import React from 'react';
-import { overlayFSM } from '../controllers/overlayFSM';
+import "./EventOverlay.css";
+import {
+  overlayFSM,
+  OVERLAY_TYPES,
+} from "../controllers/overlayFSM";
 
 export default function EventOverlay() {
+  function closeEvent() {
+    overlayFSM.open(OVERLAY_TYPES.NONE);
+  }
+
   return (
-    <div className="overlay-drawer blocking-priority" style={{ width: '100%', height: '100%', maxWidth: 'none', backgroundColor: 'rgba(0,0,0,0.9)' }}>
-      <div className="drawer-header" style={{ borderBottom: '2px solid var(--danger-color)' }}>
-        <h2>¡EVENTO BLOQUEANTE!</h2>
-      </div>
-      
-      <div className="drawer-content flex-center" style={{ color: 'var(--danger-color)', fontSize: '1.5rem', textAlign: 'center' }}>
-        <p>El mundo está detenido hasta que resuelvas este evento a través del CTA Central.</p>
+    <div className="event-overlay">
+      <div className="event-card">
+        <h2>Evento</h2>
+        <p>Algo importante está ocurriendo…</p>
+
+        <button onClick={closeEvent}>
+          Continuar
+        </button>
       </div>
     </div>
   );

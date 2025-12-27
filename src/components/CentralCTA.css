@@ -1,0 +1,70 @@
+/* ===== BARRA INFERIOR ===== */
+
+.cta-bar {
+  position: fixed;
+  bottom: 16px;
+  left: 0;
+  right: 0;
+
+  display: flex;
+  justify-content: space-between;
+  padding: 0 16px;
+
+  z-index: 1000;
+}
+
+.cta-bar .cta-btn {
+  padding: 10px 14px;
+  border-radius: 12px;
+
+  background: #1a2240;
+  color: #e6e9f2;
+
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* ===== CTA FLOTANTE ===== */
+
+.cta-fab {
+  position: fixed;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+
+  z-index: 1100;
+  pointer-events: none;
+}
+
+.cta-main {
+  pointer-events: auto;
+
+  min-width: 160px;
+  padding: 14px 20px;
+
+  background: #f4c430;
+  color: #1a1a1a;
+  font-weight: 700;
+
+  border-radius: 14px;
+  border: none;
+  cursor: pointer;
+
+  position: relative;
+}
+
+/* ANILLO */
+.cta-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 3px solid #6fb7ff;
+
+  pointer-events: none;
+}
+
+.cta-label {
+  position: relative;
+  z-index: 1;
+}

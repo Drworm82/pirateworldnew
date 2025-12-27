@@ -1,3 +1,7 @@
-node_modules/
-.vite/
-dist/
+.env
+.env.local
+.storybook
+plasmic.json
+plasmic.lock
+src/stories
+node_modules

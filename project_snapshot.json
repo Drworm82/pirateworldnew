@@ -1,0 +1,106 @@
+{
+  "project": "PirateWorld",
+  "snapshot_version": 6,
+  "last_updated": "Sprint 73 — Canonización UI Trae",
+  "sprint": {
+    "id": 73,
+    "status": "OPEN",
+    "goal": "Canonizar frontend Trae.ai y estabilizar overlays base en modo RO"
+  },
+  "fsm": {
+    "controller": "src/controllers/fsmController.js",
+    "states": [
+      "FIRST_TIME_GPS",
+      "GPS_NOMAD",
+      "PORT_IDLE",
+      "PORT_TRAVEL",
+      "EVENT",
+      "PROFILE"
+    ],
+    "transitions": {
+      "cta_cycle": [
+        "FIRST_TIME_GPS -> PORT_IDLE",
+        "PORT_IDLE -> PORT_TRAVEL",
+        "PORT_TRAVEL -> GPS_NOMAD"
+      ],
+      "direct": [
+        "ANY -> PROFILE (via Menu / NavBar)"
+      ]
+    },
+    "rules": [
+      "FSM is the only source of truth",
+      "UI never mutates FSM except via CTA or explicit controller call",
+      "EVENT blocks all transitions"
+    ],
+    "status": "CANON_STABLE"
+  },
+  "ui": {
+    "architecture": "FSM-first",
+    "observer_only": true,
+    "routing": "none",
+    "cta": {
+      "exists": true,
+      "drives_fsm": true,
+      "visible_in_travel": true
+    },
+    "overlays": {
+      "menu": "read_only",
+      "profile": "read_only",
+      "inventory": "stable_reactive",
+      "map_rpg": "stable_reactive",
+      "crew": "read_only",
+      "event": "blocking_priority"
+    },
+    "overlay_rules": [
+      "Only one overlay visible at a time",
+      "MENU toggles open/close with same button",
+      "Overlays never change FSM state implicitly",
+      "EVENT overlay blocks all others"
+    ],
+    "status": "CANON_STABLE"
+  },
+  "backend": {
+    "environment": "DEV",
+    "mode": "read_only",
+    "auth": "anon",
+    "writes_disabled": true,
+    "rpcs": {
+      "rpc_get_player_summary": {
+        "used_by": ["ProfileOverlay"],
+        "fields": [
+          "rank",
+          "title",
+          "reputation_score",
+          "crew_count",
+          "islands_count",
+          "travel_count",
+          "inventory_counts"
+        ],
+        "status": "STABLE"
+      }
+    }
+  },
+  "scope": {
+    "in_scope": [
+      "Menu Overlay (RO)",
+      "Profile Overlay (RO)",
+      "Overlay FSM correctness",
+      "Import consistency",
+      "Visual parity with CANON"
+    ],
+    "out_of_scope": [
+      "Banco Mundial",
+      "Misiones",
+      "Territorio",
+      "Chat Local",
+      "Telégrafo",
+      "Any backend writes",
+      "Economy changes"
+    ]
+  },
+  "notes": [
+    "Frontend base generado con Trae.ai",
+    "Se prioriza canonización sobre feature expansion",
+    "UI estética no debe alterarse sin sprint dedicado"
+  ]
+}

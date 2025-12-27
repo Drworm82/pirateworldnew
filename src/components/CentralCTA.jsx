@@ -1,45 +1,83 @@
-// src/components/CentralCTA.jsx
-import React, { useState, useEffect } from 'react';
-import { fsmController, SCENES } from '../controllers/fsmController';
+import "./CentralCTA.css";
+
+/* FSM */
+import { fsmController } from "../controllers/fsmController";
+
+/* Overlay FSM */
+import {
+  overlayFSM,
+  OVERLAY_TYPES,
+} from "../controllers/overlayFSM";
 
 export default function CentralCTA() {
-  const [fsmState, setFsmState] = useState(fsmController.getState());
+  function isBlocked() {
+    return overlayFSM.getState() === OVERLAY_TYPES.EVENT;
+  }
 
-  useEffect(() => {
-    return fsmController.subscribe(setFsmState);
-  }, []);
+  function handleCentralCTA() {
+    if (isBlocked()) return;
 
-  // Determinar texto y visibilidad basado en estado
-  const getCtaConfig = (state) => {
-    switch (state) {
-      case SCENES.FIRST_TIME_GPS:
-        return { text: 'INICIAR AVENTURA', visible: true };
-      case SCENES.PORT_IDLE:
-        return { text: 'ZARPAR', visible: true };
-      case SCENES.PORT_TRAVEL:
-        return { text: 'LLEGAR AL DESTINO', visible: true };
-      case SCENES.GPS_NOMAD:
-        return { text: 'BUSCAR PUERTO', visible: true };
-      case SCENES.EVENT:
-        return { text: 'RESOLVER', visible: true };
-      default:
-        return { text: 'ACCION', visible: false };
+    if (typeof fsmController.cta === "function") {
+      fsmController.cta();
+      return;
     }
-  };
+    if (typeof fsmController.advance === "function") {
+      fsmController.advance();
+      return;
+    }
+    if (typeof fsmController.next === "function") {
+      fsmController.next();
+      return;
+    }
+    if (typeof fsmController.send === "function") {
+      fsmController.send("CTA");
+      return;
+    }
 
-  const config = getCtaConfig(fsmState);
+    console.warn("[CentralCTA] No CTA handler found");
+  }
 
-  if (!config.visible) return null;
+  function handleInventory() {
+    if (isBlocked()) return;
+    overlayFSM.toggle(OVERLAY_TYPES.INVENTORY);
+  }
+
+  function handleMap() {
+    if (isBlocked()) return;
+    overlayFSM.toggle(OVERLAY_TYPES.MAP_RPG);
+  }
 
   return (
-    <div className="central-cta-container">
-        <button 
-        className="central-cta" 
-        onClick={() => fsmController.cta()}
+    <>
+      {/* Barra inferior */}
+      <div className="cta-bar">
+        <button
+          className="cta-btn secondary"
+          onClick={handleInventory}
         >
-        ⚓
+          Inventario
         </button>
-        <span className="cta-label">{config.text}</span>
-    </div>
+
+        <button
+          className="cta-btn secondary"
+          onClick={handleMap}
+        >
+          Mapa
+        </button>
+      </div>
+
+      {/* CTA flotante */}
+      <div className="cta-fab">
+        <button
+          className="cta-btn primary cta-main"
+          onClick={handleCentralCTA}
+        >
+          <span className="cta-ring" />
+          <span className="cta-label">
+            INICIAR AVENTURA
+          </span>
+        </button>
+      </div>
+    </>
   );
 }

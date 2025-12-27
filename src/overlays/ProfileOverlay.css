@@ -1,0 +1,49 @@
+.profile-overlay {
+  position: fixed;
+  inset: 0;
+
+  background: rgba(0, 0, 0, 0.7);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  z-index: 1800;
+}
+
+.profile-card {
+  background: #0f1530;
+  color: #e6e9f2;
+
+  padding: 24px;
+  border-radius: 16px;
+
+  width: 90%;
+  max-width: 360px;
+}
+
+.profile-card h2 {
+  margin: 0 0 16px 0;
+  text-align: center;
+}
+
+.profile-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.profile-row .label {
+  opacity: 0.7;
+}
+
+.profile-row .value {
+  font-weight: 600;
+}
+
+.profile-hint {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.6;
+}

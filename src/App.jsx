@@ -1,33 +1,39 @@
 import React, { useEffect, useState } from "react";
-import Layout from "./components/Layout";
-import NavBar from "./components/NavBar";
+import LoginDev from "./dev/LoginDev";
 
+/* FSM */
 import { fsmController, SCENES } from "./controllers/fsmController";
 import { overlayFSM, OVERLAY_TYPES } from "./controllers/overlayFSM";
 
-// Screens (NOMBRES REALES)
+/* UI */
+import NavBar from "./components/NavBar";
+import CentralCTA from "./components/CentralCTA";
+
+/* Screens */
 import FirstTimeGPS from "./screens/FirstTimeGPS";
 import GPSNomad from "./screens/GPSNomad";
 import PortIdle from "./screens/PortIdle";
 import PortTravel from "./screens/PortTravel";
-import Profile from "./screens/Profile";
 import EventScreen from "./screens/EventScreen";
 
-// Overlays
-import MenuOverlay from "./overlays/Menu";
-import InventoryOverlay from "./overlays/Inventory";
-import MapRPGOverlay from "./overlays/MapRPG";
-import CrewOverlay from "./overlays/Crew";
+/* Overlays */
+import Menu from "./overlays/Menu";
+import Inventory from "./overlays/Inventory";
+import MapRPG from "./overlays/MapRPG";
+import Crew from "./overlays/Crew";
+import ProfileOverlay from "./overlays/ProfileOverlay";
+import EventOverlay from "./overlays/EventOverlay";
 
 export default function App() {
   const [scene, setScene] = useState(fsmController.getState());
   const [overlay, setOverlay] = useState(overlayFSM.getState());
 
   useEffect(() => {
-    const unsubFSM = fsmController.subscribe(setScene);
+    const unsubScene = fsmController.subscribe(setScene);
     const unsubOverlay = overlayFSM.subscribe(setOverlay);
+
     return () => {
-      unsubFSM();
+      unsubScene();
       unsubOverlay();
     };
   }, []);
@@ -36,44 +42,47 @@ export default function App() {
     switch (scene) {
       case SCENES.FIRST_TIME_GPS:
         return <FirstTimeGPS />;
-
-      case SCENES.GPS_NOMAD:
-        return <GPSNomad />;
-
       case SCENES.PORT_IDLE:
         return <PortIdle />;
-
       case SCENES.PORT_TRAVEL:
         return <PortTravel />;
-
-      case SCENES.PROFILE:
-        return <Profile />;
-
+      case SCENES.GPS_NOMAD:
+        return <GPSNomad />;
       case SCENES.EVENT:
         return <EventScreen />;
-
       default:
         return null;
     }
   }
 
-  function renderOverlays() {
-    return (
-      <>
-        {overlay === OVERLAY_TYPES.MENU && <MenuOverlay />}
-        {overlay === OVERLAY_TYPES.INVENTORY && <InventoryOverlay />}
-        {overlay === OVERLAY_TYPES.MAP_RPG && <MapRPGOverlay />}
-        {overlay === OVERLAY_TYPES.CREW && <CrewOverlay />}
-      </>
-    );
+  function renderOverlay() {
+    switch (overlay) {
+      case OVERLAY_TYPES.MENU:
+        return <Menu />;
+      case OVERLAY_TYPES.INVENTORY:
+        return <Inventory />;
+      case OVERLAY_TYPES.MAP_RPG:
+        return <MapRPG />;
+      case OVERLAY_TYPES.CREW:
+        return <Crew />;
+      case OVERLAY_TYPES.PROFILE:
+        return <ProfileOverlay />;
+      case OVERLAY_TYPES.EVENT:
+        return <EventOverlay />;
+      default:
+        return null;
+    }
   }
 
   return (
-    <Layout
-      screen={renderScreen()}
-      navbar={<NavBar />}
-      cta={null}
-      overlays={renderOverlays()}
-    />
+    <>
+      {renderScreen()}
+      <NavBar />
+      <CentralCTA />
+      {renderOverlay()}
+
+      {/* LOGIN DEV — SOLO EN DESARROLLO */}
+      {import.meta.env.DEV && <LoginDev />}
+    </>
   );
 }
