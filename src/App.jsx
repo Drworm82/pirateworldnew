@@ -81,18 +81,8 @@ export default function App() {
       <CentralCTA />
       {renderOverlay()}
 
-      {/* LOGIN DEV — SOLO EN DESARROLLO */}
-      return (
-  <>
-    {renderScreen()}
-    <NavBar />
-    <CentralCTA />
-    {renderOverlay()}
-
-    {import.meta.env.DEV && <LoginDev />}
-  </>
-);
-
+      {/* LOGIN DEV — SOLO LOCAL */}
+      {import.meta.env.DEV && <LoginDev />}
     </>
   );
 }
