@@ -5,3 +5,4 @@ plasmic.json
 plasmic.lock
 src/stories
 node_modules
+dist

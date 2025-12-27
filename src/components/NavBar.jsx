@@ -1,25 +1,11 @@
 import "./NavBar.css";
 import { supabase } from "../lib/supabaseClient";
-import { overlayFSM, OVERLAY_TYPES } from "../controllers/overlayFSM";
-import { useEffect, useState } from "react";
+import {
+  overlayFSM,
+  OVERLAY_TYPES,
+} from "../controllers/overlayFSM";
 
 export default function NavBar() {
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data?.user ?? null);
-    });
-
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
-      }
-    );
-
-    return () => listener.subscription.unsubscribe();
-  }, []);
-
   function isBlocked() {
     return overlayFSM.getState() === OVERLAY_TYPES.EVENT;
   }
@@ -30,24 +16,34 @@ export default function NavBar() {
   }
 
   async function handleLogin() {
-    await supabase.auth.signInWithOtp({
-      email: prompt("Email para login"),
+    const email = prompt("Ingresa tu email para iniciar sesión:");
+    if (!email) return;
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
     });
+
+    if (error) {
+      alert("Error enviando magic link");
+      console.error(error);
+    } else {
+      alert("Revisa tu correo para iniciar sesión");
+    }
   }
 
   async function handleLogout() {
     await supabase.auth.signOut();
-  }
-
-  function handleWork() {
-    if (isBlocked()) return;
-    console.log("Trabajar (RO mock)");
+    window.location.reload();
   }
 
   return (
     <div className="navbar">
       {/* Izquierda */}
-      <button className="hamburger-btn" onClick={toggleMenu}>
+      <button
+        className="hamburger-btn"
+        onClick={toggleMenu}
+        aria-label="Menu"
+      >
         ☰
       </button>
 
@@ -55,20 +51,14 @@ export default function NavBar() {
       <div className="navbar-title">PirateWorld</div>
 
       {/* Derecha */}
-      {user ? (
-        <>
-          <button className="work-btn" onClick={handleWork}>
-            Trabajar
-          </button>
-          <button className="auth-btn" onClick={handleLogout}>
-            Logout
-          </button>
-        </>
-      ) : (
-        <button className="auth-btn" onClick={handleLogin}>
+      <div className="navbar-actions">
+        <button className="login-btn" onClick={handleLogin}>
           Login
         </button>
-      )}
+        <button className="logout-btn" onClick={handleLogout}>
+          Logout
+        </button>
+      </div>
     </div>
   );
 }
