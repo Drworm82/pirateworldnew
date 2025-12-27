@@ -82,7 +82,17 @@ export default function App() {
       {renderOverlay()}
 
       {/* LOGIN DEV — SOLO EN DESARROLLO */}
-      {import.meta.env.DEV && <LoginDev />}
+      return (
+  <>
+    {renderScreen()}
+    <NavBar />
+    <CentralCTA />
+    {renderOverlay()}
+
+    {import.meta.env.DEV && <LoginDev />}
+  </>
+);
+
     </>
   );
 }
