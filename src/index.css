@@ -1,0 +1,333 @@
+/* src/index.css */
+:root {
+  --bg-color: #1a1a1a;
+  --text-color: #e0e0e0;
+  --accent-color: #ff9800;
+  --danger-color: #f44336;
+  --ui-panel-bg: #2d2d2d;
+  --overlay-bg: rgba(0, 0, 0, 0.85);
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  overflow: hidden; /* App-like feel */
+  height: 100vh;
+  width: 100vw;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Layout Root */
+.layout-root {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-screen {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.overlays-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 200;
+}
+
+.overlays-layer > * {
+  pointer-events: auto;
+}
+
+/* Utils */
+.flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.full-screen {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Screen Containers */
+.screen {
+  height: 100%;
+  width: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  position: relative; /* Ensure proper stacking context */
+  z-index: 1; /* Base layer */
+}
+
+/* NavBar Top */
+.top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 60px;
+  background-color: #fff; /* White bg as per image */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+  box-sizing: border-box;
+  z-index: 150;
+  border-bottom: 1px solid #ddd;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.top-bar .nav-btn {
+  color: #333; /* Dark icon color */
+  border: none;
+}
+
+/* NavBar Bottom */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 70px; /* Slightly taller for bottom nav */
+  background-color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+  box-sizing: border-box;
+  z-index: 150;
+  border-top: 1px solid #ddd;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+}
+
+.bottom-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #666;
+  font-size: 0.8rem;
+  flex: 1; /* Distribute space */
+}
+
+.bottom-item .icon {
+  font-size: 1.5rem;
+  margin-bottom: 4px;
+}
+
+.bottom-item .label {
+  font-weight: 500;
+}
+
+.cta-spacer {
+  flex: 1; /* Space for the floating CTA */
+  min-width: 80px; 
+}
+
+/* CTA - Floating FAB style */
+.central-cta-container {
+  position: fixed;
+  bottom: 25px; /* Half inside bottom bar, half out */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 160;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none; /* Let container pass clicks around, but button captures them */
+}
+
+.central-cta {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background-color: #2b6cb0; /* Deep blue like image */
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 2rem;
+  border: 4px solid #fff; /* White ring */
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 0.1s, background-color 0.2s;
+}
+
+.central-cta:active {
+  transform: scale(0.95);
+}
+
+.central-cta:disabled {
+  background-color: #999;
+}
+
+.cta-label {
+  margin-top: 5px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: #333;
+  text-transform: uppercase;
+  background: rgba(255,255,255,0.8);
+  padding: 2px 6px;
+  border-radius: 4px;
+  pointer-events: auto;
+}
+
+.nav-btn.hamburger {
+  font-size: 1.8rem;
+}
+
+/* Overlays */
+.overlay-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--overlay-bg);
+  z-index: 200; /* Topmost */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.overlay-panel {
+  background-color: var(--ui-panel-bg);
+  padding: 30px;
+  border-radius: 10px;
+  min-width: 300px;
+  max-width: 90%;
+  max-height: 90%;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+/* Drawer Menu (Sidebar) */
+.overlay-drawer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 85%;
+  max-width: 320px;
+  background-color: #fff;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 2px 0 15px rgba(0,0,0,0.3);
+  animation: slideIn 0.3s ease-out;
+  color: #333;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.drawer-header {
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.drawer-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.close-btn-drawer {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  color: #666;
+  cursor: pointer;
+}
+
+.drawer-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 0;
+}
+
+.menu-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 15px 20px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  color: #444;
+}
+
+.menu-item:hover {
+  background-color: #f5f5f5;
+}
+
+.menu-icon {
+  font-size: 1.2rem;
+  margin-right: 15px;
+  width: 24px;
+  text-align: center;
+}
+
+.menu-label {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.drawer-footer {
+  padding: 10px 0;
+  border-top: 1px solid #eee;
+}
+
+.menu-item.logout {
+  color: #666;
+}
+
+.close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: #aaa;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
